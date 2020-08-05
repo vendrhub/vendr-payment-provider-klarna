@@ -10,7 +10,8 @@
             <BinFiles Include="$(SourceDir)\Vendr.*\bin\$(BuildConfiguration)\$(ProjectName).pdb" />
             <BinFiles Include="$(SourceDir)\Vendr.*\bin\$(BuildConfiguration)\$(ProjectName).xml" />
             <!-- BEGIN DLL DEPENDENCIES-->
-            <!--<BinFiles Include="$(SourceDir)\Vendr.*\bin\$(BuildConfiguration)\Your.Dependency.dll" />-->
+            <BinFiles Include="$(SourceDir)\Vendr.*\bin\$(BuildConfiguration)\Flurl.Http.dll" />
+            <BinFiles Include="$(SourceDir)\Vendr.*\bin\$(BuildConfiguration)\Flurl.dll" />
             <!-- END DLL DEPENDENCIES-->
             <AssetFiles Include="$(RootDir)\assets\*" />
             <VendrLicenseFile Include="$(RootDir)\LICENSE.md" />

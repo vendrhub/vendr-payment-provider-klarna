@@ -34,19 +34,28 @@
     <Reference Include="BouncyCastle.Crypto, Version=1.8.5.0, Culture=neutral, PublicKeyToken=0e99375e54769942, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Portable.BouncyCastle.1.8.5\lib\net40\BouncyCastle.Crypto.dll</HintPath>
     </Reference>
+    <Reference Include="Flurl, Version=2.8.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Flurl.2.8.2\lib\net40\Flurl.dll</HintPath>
+    </Reference>
+    <Reference Include="Flurl.Http, Version=2.4.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Flurl.Http.2.4.2\lib\net46\Flurl.Http.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Web.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Microsoft.Web.Infrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Newtonsoft.Json.12.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="OD.Licensing, Version=0.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\OD.Licensing.0.1.0\lib\net45\OD.Licensing.dll</HintPath>
+    <Reference Include="OD.Licensing, Version=0.3.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\OD.Licensing.0.3.2\lib\net45\OD.Licensing.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data.Linq" />
+    <Reference Include="System.Linq.Dynamic.Core, Version=1.1.1.0, Culture=neutral, PublicKeyToken=0f07ec44de6ac832, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Linq.Dynamic.Core.1.1.1\lib\net46\System.Linq.Dynamic.Core.dll</HintPath>
+    </Reference>
     <Reference Include="System.Net.Http.WebRequest" />
     <Reference Include="System.Web" />
     <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -73,14 +82,31 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
-    <Reference Include="Vendr.Core, Version=0.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Vendr.Core.0.1.0-alpha0418\lib\net472\Vendr.Core.dll</HintPath>
+    <Reference Include="Vendr.Core, Version=1.2.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Vendr.Core.1.2.7\lib\net472\Vendr.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Vendr.Core.Web, Version=0.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Vendr.Core.Web.0.1.0-alpha0418\lib\net472\Vendr.Core.Web.dll</HintPath>
+    <Reference Include="Vendr.Core.Web, Version=1.2.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Vendr.Core.Web.1.2.7\lib\net472\Vendr.Core.Web.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Api\KlarnaClient.cs" />
+    <Compile Include="Api\Models\KlarnaAddress.cs" />
+    <Compile Include="Api\Models\KlarnaApiRegion.cs" />
+    <Compile Include="Api\Models\KlarnaAssetUrls.cs" />
+    <Compile Include="Api\Models\KlarnaClientConfig.cs" />
+    <Compile Include="Api\Models\KlarnaCreateHppSessionRequest.cs" />
+    <Compile Include="Api\Models\KlarnaCreateMerchantSessionRequest.cs" />
+    <Compile Include="Api\Models\KlarnaHppMerchantUrls.cs" />
+    <Compile Include="Api\Models\KlarnaHppOptions.cs" />
+    <Compile Include="Api\Models\KlarnaHppSession.cs" />
+    <Compile Include="Api\Models\KlarnaMerchantSession.cs" />
+    <Compile Include="Api\Models\KlarnaMerchantUrls.cs" />
+    <Compile Include="Api\Models\KlarnaOrderLine.cs" />
+    <Compile Include="Api\Models\KlarnaPaymentMethodCategory.cs" />
+    <Compile Include="Api\Models\PlaygroundKlarnaClientConfig.cs" />
+    <Compile Include="Api\Models\LiveKlarnaClientConfig.cs" />
+    <Compile Include="KlarnaPaymentProviderBase.cs" />
     <Compile Include="KlarnaHppPaymentProvider.cs" />
     <Compile Include="KlarnaHppSettings.cs" />
     <Compile Include="KlarnaSettingsBase.cs" />
@@ -91,5 +117,20 @@
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>REM #################################################
+REM # Copy files
+REM #################################################
+
+IF %25ComputerName%25 == DESKTOP-ESFKU58 (
+IF NOT "$(SolutionDir)" == "*Undefined*" (
+xcopy /s /y "$(TargetPath)" "$(SolutionDir)\..\..\Sandbox\src\Vendr.DemoStore.Web\bin"
+xcopy /s /y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)\..\..\Sandbox\src\Vendr.DemoStore.Web\bin"
+xcopy /s /y "$(TargetDir)Flurl.dll" "$(SolutionDir)\..\..\Sandbox\src\Vendr.DemoStore.Web\bin"
+xcopy /s /y "$(TargetDir)Flurl.Http.dll" "$(SolutionDir)\..\..\Sandbox\src\Vendr.DemoStore.Web\bin"
+)
+)</PostBuildEvent>
+  </PropertyGroup>
 </Project>
