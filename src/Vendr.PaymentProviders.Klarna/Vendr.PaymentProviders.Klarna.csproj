@@ -97,6 +97,7 @@
     <Compile Include="Api\Models\KlarnaClientConfig.cs" />
     <Compile Include="Api\Models\KlarnaCreateHppSessionRequest.cs" />
     <Compile Include="Api\Models\KlarnaCreateMerchantSessionRequest.cs" />
+    <Compile Include="Api\Models\KlarnaSessionEvent.cs" />
     <Compile Include="Api\Models\KlarnaHppMerchantUrls.cs" />
     <Compile Include="Api\Models\KlarnaHppOptions.cs" />
     <Compile Include="Api\Models\KlarnaHppSession.cs" />

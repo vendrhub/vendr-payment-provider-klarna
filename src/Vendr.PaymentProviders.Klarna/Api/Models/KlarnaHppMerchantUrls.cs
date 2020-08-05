@@ -18,5 +18,8 @@ namespace Vendr.PaymentProviders.Klarna.Api.Models
 
         [JsonProperty("error")]
         public string Error { get; set; }
+
+        [JsonProperty("status_update")]
+        public string StatusUpdate { get; set; }
     }
 }

@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Org.BouncyCastle.Bcpg.OpenPgp;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
@@ -24,8 +27,16 @@ namespace Vendr.PaymentProviders.Klarna
         public override bool CanCapturePayments => true;
         public override bool CanRefundPayments => true;
 
+        public override IEnumerable<TransactionMetaDataDefinition> TransactionMetaDataDefinitions => new[]{
+            new TransactionMetaDataDefinition("klarnaSessionId", "Klarna Session ID"),
+            new TransactionMetaDataDefinition("klarnaOrderId", "Klarna Order ID"),
+            new TransactionMetaDataDefinition("klarnaReference", "Klarna Reference")
+        };
+
         public override PaymentFormResult GenerateForm(OrderReadOnly order, string continueUrl, string cancelUrl, string callbackUrl, KlarnaHppSettings settings)
         {
+            var klarnaSecretToken = Guid.NewGuid().ToString("N");
+
             var clientConfig = GetKlarnaClientConfig(settings);
             var client = new KlarnaClient(clientConfig);
 
@@ -53,10 +64,11 @@ namespace Vendr.PaymentProviders.Klarna
             var resp1 = client.CreateMerchantSession(new KlarnaCreateMerchantSessionRequest
             {
                 MerchantReference1 = order.OrderNumber,
-                MerchantReference2 = order.GenerateOrderReference(),
+                //MerchantReference2 = order.GenerateOrderReference(),
                 PurchaseCountry = billingCountryCode,
                 PurchaseCurrency = currencyCode,
                 Locale = order.LanguageIsoCode, // TODO: Validate?
+
                 OrderAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.WithTax),
                 OrderLines = order.OrderLines.Select(orderLine => new KlarnaOrderLine
                 {
@@ -67,6 +79,7 @@ namespace Vendr.PaymentProviders.Klarna
                     TotalAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.Value.WithTax),
                     TotalDiscountAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.TotalDiscount.WithTax),
                 }).ToList(),
+
                 BillingAddress = new KlarnaAddress
                 {
                     GivenName = order.CustomerInfo.FirstName,
@@ -84,11 +97,13 @@ namespace Vendr.PaymentProviders.Klarna
                         ? order.Properties[settings.BillingAddressZipCodePropertyAlias]?.Value : null,
                     Country = billingCountryCode
                 },
+
                 MerchantUrls = new KlarnaMerchantUrls
                 {
-                    Confirmation = continueUrl,
-                    Notification = callbackUrl,
-                    Push = callbackUrl
+                    // Not sure these are event used for HPP
+                    Confirmation = AppendQueryString(continueUrl, "sid={session.id}&oid={order.id}"),
+                    Notification = AppendQueryString(callbackUrl, "sid={session.id}&oid={order.id}"),
+                    Push = AppendQueryString(callbackUrl, "sid={session.id}&oid={order.id}")
                 }
             });;
 
@@ -96,17 +111,29 @@ namespace Vendr.PaymentProviders.Klarna
             var resp2 = client.CreateHppSession(new KlarnaCreateHppSessionRequest
             {
                 PaymentSessionUrl = $"{clientConfig.BaseUrl}/payments/v1/sessions/{resp1.SessionId}",
+                Options = new KlarnaHppOptions
+                {
+                    PlaceOrderMode = settings.Capture 
+                        ? KlarnaHppOptions.PlaceOrderModes.CAPTURE_ORDER
+                        : KlarnaHppOptions.PlaceOrderModes.PLACE_ORDER
+                },
                 MerchantUrls = new KlarnaHppMerchantUrls
                 {
-                    Success = continueUrl + "?sid={{session_id}}&token={{authorization_token}}",
-                    Cancel = cancelUrl + "?a=c&sid={{session_id}}",
-                    Failure = cancelUrl + "?a=f&sid={{session_id}}"
+                    Success = continueUrl,
+                    Cancel = AppendQueryString(cancelUrl, "type=cancel"),
+                    Failure = AppendQueryString(cancelUrl, "type=failure"),
+                    StatusUpdate = AppendQueryString(callbackUrl, "sid={{session_id}}&token="+ klarnaSecretToken),
                 }
             });
 
             return new PaymentFormResult()
             {
-                Form = new PaymentForm(resp2.RedirectUrl, FormMethod.Get)
+                Form = new PaymentForm(resp2.RedirectUrl, FormMethod.Get),
+                MetaData = new Dictionary<string, string>
+                {
+                    { "klarnaSessionId", resp1.SessionId },
+                    { "klarnaSecretToken", klarnaSecretToken }
+                }
             };
         }
 
@@ -120,19 +147,19 @@ namespace Vendr.PaymentProviders.Klarna
             if (HttpContext.Current != null)
             {
                 var req = HttpContext.Current.Request;
-                var action = req.QueryString["a"];
+                var returnType = req.QueryString["type"];
 
-                cancelUrl += $"?sid={req.QueryString["sid"]}";
+                cancelUrl = AppendQueryStringParam(cancelUrl, "sid", req.QueryString["sid"]);
 
-                if (action == "f")
+                if (returnType == "failure")
                 {
                     if (!string.IsNullOrWhiteSpace(settings.ErrorUrl))
                     {
-                        return settings.ErrorUrl + $"?sid={req.QueryString["sid"]}";
+                        return AppendQueryStringParam(settings.ErrorUrl, "sid", req.QueryString["sid"]);
                     }
                     else
                     {
-                        cancelUrl += "&reason=failure";
+                        cancelUrl = AppendQueryStringParam(cancelUrl, "reason", "failure");
                     }
                 }
             }
@@ -159,7 +186,8 @@ namespace Vendr.PaymentProviders.Klarna
             {
                 var req = HttpContext.Current.Request;
 
-                continueUrl += $"?sid={req.QueryString["sid"]}&token={req.QueryString["token"]}";
+                continueUrl = AppendQueryStringParam(continueUrl, "sid", req.QueryString["sid"]);
+                continueUrl = AppendQueryStringParam(continueUrl, "token", req.QueryString["token"]);
             }
 
             return continueUrl;
@@ -167,16 +195,38 @@ namespace Vendr.PaymentProviders.Klarna
 
         public override CallbackResult ProcessCallback(OrderReadOnly order, HttpRequestBase request, KlarnaHppSettings settings)
         {
-            return new CallbackResult
+            var token = request.QueryString["token"];
+
+            if (!string.IsNullOrWhiteSpace(token) && order.Properties["klarnaSecretToken"] == token)
             {
-                TransactionInfo = new TransactionInfo
+                var clientConfig = GetKlarnaClientConfig(settings);
+                var client = new KlarnaClient(clientConfig);
+
+                var evt = client.ParseSessionEvent(request.InputStream);
+                if (evt != null && evt.Session.Status == KlarnaSession.Statuses.COMPLETED)
                 {
-                    AmountAuthorized = order.TotalPrice.Value.WithTax,
-                    TransactionFee = 0m,
-                    TransactionId = Guid.NewGuid().ToString("N"),
-                    PaymentStatus = PaymentStatus.Authorized
+                    return new CallbackResult
+                    {
+                        TransactionInfo = new TransactionInfo
+                        {
+                            AmountAuthorized = order.TotalPrice.Value.WithTax,
+                            TransactionFee = 0m,
+                            TransactionId = evt.Session.OrderId,
+                            PaymentStatus = settings.Capture
+                                ? PaymentStatus.Captured
+                                : PaymentStatus.Authorized
+                        },
+                        MetaData = new Dictionary<string, string>
+                        {
+                            { "klarnaOrderId", evt.Session.OrderId },
+                            { "klarnaReference", evt.Session.KlarnaReference },
+                            { "klarnaSessionId", evt.Session.SessionId }
+                        }
+                    };
                 }
-            };
+            }
+
+            return CallbackResult.Ok();
         }
 
         public override ApiResult CancelPayment(OrderReadOnly order, KlarnaHppSettings settings)

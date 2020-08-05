@@ -2,6 +2,7 @@
 using Flurl.Http.Configuration;
 using Newtonsoft.Json;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Vendr.PaymentProviders.Klarna.Api.Models;
 
@@ -36,6 +37,20 @@ namespace Vendr.PaymentProviders.Klarna.Api
             return Request("/hpp/v1/sessions", (req) => req
                 .PostJsonAsync(request)
                 .ReceiveJson<KlarnaHppSession>());
+        }
+
+        public KlarnaSessionEvent ParseSessionEvent(Stream stream)
+        {
+            var serializer = new JsonSerializer();
+
+            if (stream.CanSeek)
+                stream.Seek(0, 0);
+
+            using (var sr = new StreamReader(stream))
+            using (var jsonTextReader = new JsonTextReader(sr))
+            {
+                return serializer.Deserialize<KlarnaSessionEvent>(jsonTextReader);
+            }
         }
 
         private TResult Request<TResult>(string url, Func<IFlurlRequest, Task<TResult>> func)

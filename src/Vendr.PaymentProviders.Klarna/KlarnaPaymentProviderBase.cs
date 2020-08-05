@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
+using System.IO;
 using Vendr.Core.Web.Api;
 using Vendr.Core.Web.PaymentProviders;
 using Vendr.PaymentProviders.Klarna.Api.Models;
@@ -26,6 +28,16 @@ namespace Vendr.PaymentProviders.Klarna
                     settings.TestApiPassword,
                     (KlarnaApiRegion)Enum.Parse(typeof(KlarnaApiRegion), settings.ApiRegion));
             }
+        }
+
+        protected string AppendQueryString(string url, string qs)
+        {
+            return url + (url.Contains("?") ? "&" : "?") + qs;
+        }
+
+        protected string AppendQueryStringParam(string url, string key, string value)
+        {
+            return url + (url.Contains("?") ? "&" : "?") + key + "=" + value;
         }
     }
 }
