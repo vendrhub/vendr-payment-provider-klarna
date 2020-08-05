@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29503.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{A2F6C69B-7FBB-4520-B282-1B47A0854A03}"
+	ProjectSection(SolutionItems) = preProject
+		Build.cmd = Build.cmd
+		build\Build.Compile.targets = build\Build.Compile.targets
+		build\Build.Package.Nuget.targets = build\Build.Package.Nuget.targets
+		build\Build.Package.Umbraco.targets = build\Build.Package.Umbraco.targets
+		build\Build.Prepare.targets = build\Build.Prepare.targets
+		build\Build.proj = build\Build.proj
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuSpecs", "NuSpecs", "{81061D69-BD7A-443B-B18D-9BF1F4840A31}"
+	ProjectSection(SolutionItems) = preProject
+		build\NuSpecs\Vendr.PaymentProviders.Klarna.nuspec = build\NuSpecs\Vendr.PaymentProviders.Klarna.nuspec
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vendr.PaymentProviders.Klarna", "src\Vendr.PaymentProviders.Klarna\Vendr.PaymentProviders.Klarna.csproj", "{54D75F3D-BD42-45E8-BC99-210A9AD71CEB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Umbraco", "Umbraco", "{5CE927E7-4573-4968-A66A-C2C195FAC499}"
+	ProjectSection(SolutionItems) = preProject
+		build\Umbraco\Klarna.package.xml = build\Umbraco\Klarna.package.xml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{54D75F3D-BD42-45E8-BC99-210A9AD71CEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54D75F3D-BD42-45E8-BC99-210A9AD71CEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54D75F3D-BD42-45E8-BC99-210A9AD71CEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54D75F3D-BD42-45E8-BC99-210A9AD71CEB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{81061D69-BD7A-443B-B18D-9BF1F4840A31} = {A2F6C69B-7FBB-4520-B282-1B47A0854A03}
+		{5CE927E7-4573-4968-A66A-C2C195FAC499} = {A2F6C69B-7FBB-4520-B282-1B47A0854A03}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B3A08DA4-571B-4CE5-A04A-7F7E8EC953F1}
+	EndGlobalSection
+EndGlobal
