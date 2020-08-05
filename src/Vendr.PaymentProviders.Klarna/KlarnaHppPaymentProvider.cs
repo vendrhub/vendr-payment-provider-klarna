@@ -64,12 +64,10 @@ namespace Vendr.PaymentProviders.Klarna
             var resp1 = client.CreateMerchantSession(new KlarnaCreateMerchantSessionRequest
             {
                 MerchantReference1 = order.OrderNumber,
-                //MerchantReference2 = order.GenerateOrderReference(),
                 PurchaseCountry = billingCountryCode,
                 PurchaseCurrency = currencyCode,
                 Locale = order.LanguageIsoCode, // TODO: Validate?
 
-                OrderAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.WithTax),
                 OrderLines = order.OrderLines.Select(orderLine => new KlarnaOrderLine
                 {
                     Reference = orderLine.Sku,
@@ -79,6 +77,7 @@ namespace Vendr.PaymentProviders.Klarna
                     TotalAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.Value.WithTax),
                     TotalDiscountAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.TotalDiscount.WithTax),
                 }).ToList(),
+                OrderAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.WithTax),
 
                 BillingAddress = new KlarnaAddress
                 {
@@ -96,14 +95,6 @@ namespace Vendr.PaymentProviders.Klarna
                     PostalCode = !string.IsNullOrWhiteSpace(settings.BillingAddressZipCodePropertyAlias)
                         ? order.Properties[settings.BillingAddressZipCodePropertyAlias]?.Value : null,
                     Country = billingCountryCode
-                },
-
-                MerchantUrls = new KlarnaMerchantUrls
-                {
-                    // Not sure these are event used for HPP
-                    Confirmation = AppendQueryString(continueUrl, "sid={session.id}&oid={order.id}"),
-                    Notification = AppendQueryString(callbackUrl, "sid={session.id}&oid={order.id}"),
-                    Push = AppendQueryString(callbackUrl, "sid={session.id}&oid={order.id}")
                 }
             });;
 
@@ -120,8 +111,10 @@ namespace Vendr.PaymentProviders.Klarna
                 MerchantUrls = new KlarnaHppMerchantUrls
                 {
                     Success = continueUrl,
-                    Cancel = AppendQueryString(cancelUrl, "type=cancel"),
-                    Failure = AppendQueryString(cancelUrl, "type=failure"),
+                    Cancel = AppendQueryString(cancelUrl, "reason=cancel"),
+                    Back = AppendQueryString(cancelUrl, "reason=back"),
+                    Failure = AppendQueryString(cancelUrl, "reason=failure"),
+                    Error = AppendQueryString(cancelUrl, "reason=error"),
                     StatusUpdate = AppendQueryString(callbackUrl, "sid={{session_id}}&token="+ klarnaSecretToken),
                 }
             });
@@ -131,7 +124,7 @@ namespace Vendr.PaymentProviders.Klarna
                 Form = new PaymentForm(resp2.RedirectUrl, FormMethod.Get),
                 MetaData = new Dictionary<string, string>
                 {
-                    { "klarnaSessionId", resp1.SessionId },
+                    { "klarnaSessionId", resp2.SessionId },
                     { "klarnaSecretToken", klarnaSecretToken }
                 }
             };
@@ -147,21 +140,13 @@ namespace Vendr.PaymentProviders.Klarna
             if (HttpContext.Current != null)
             {
                 var req = HttpContext.Current.Request;
-                var returnType = req.QueryString["type"];
+                var reason = req.QueryString["reason"];
 
-                cancelUrl = AppendQueryStringParam(cancelUrl, "sid", req.QueryString["sid"]);
+                cancelUrl = AppendQueryStringParam(cancelUrl, "reason", reason);
 
-                if (returnType == "failure")
-                {
-                    if (!string.IsNullOrWhiteSpace(settings.ErrorUrl))
-                    {
-                        return AppendQueryStringParam(settings.ErrorUrl, "sid", req.QueryString["sid"]);
-                    }
-                    else
-                    {
-                        cancelUrl = AppendQueryStringParam(cancelUrl, "reason", "failure");
-                    }
-                }
+                if (!string.IsNullOrWhiteSpace(settings.ErrorUrl) && (reason == "failure" || reason == "error"))
+                    return AppendQueryStringParam(settings.ErrorUrl, "reason", reason);
+                
             }
 
             return cancelUrl;
@@ -180,24 +165,16 @@ namespace Vendr.PaymentProviders.Klarna
             settings.MustNotBeNull("settings");
             settings.ContinueUrl.MustNotBeNull("settings.ContinueUrl");
 
-            var continueUrl = settings.ContinueUrl;
-
-            if (HttpContext.Current != null)
-            {
-                var req = HttpContext.Current.Request;
-
-                continueUrl = AppendQueryStringParam(continueUrl, "sid", req.QueryString["sid"]);
-                continueUrl = AppendQueryStringParam(continueUrl, "token", req.QueryString["token"]);
-            }
-
-            return continueUrl;
+            return settings.ContinueUrl;
         }
 
         public override CallbackResult ProcessCallback(OrderReadOnly order, HttpRequestBase request, KlarnaHppSettings settings)
         {
+            var sessionId = request.QueryString["sid"];
             var token = request.QueryString["token"];
 
-            if (!string.IsNullOrWhiteSpace(token) && order.Properties["klarnaSecretToken"] == token)
+            if (!string.IsNullOrWhiteSpace(sessionId) && order.Properties["klarnaSessionId"] == sessionId
+                && !string.IsNullOrWhiteSpace(token) && order.Properties["klarnaSecretToken"] == token)
             {
                 var clientConfig = GetKlarnaClientConfig(settings);
                 var client = new KlarnaClient(clientConfig);
@@ -219,8 +196,7 @@ namespace Vendr.PaymentProviders.Klarna
                         MetaData = new Dictionary<string, string>
                         {
                             { "klarnaOrderId", evt.Session.OrderId },
-                            { "klarnaReference", evt.Session.KlarnaReference },
-                            { "klarnaSessionId", evt.Session.SessionId }
+                            { "klarnaReference", evt.Session.KlarnaReference }
                         }
                     };
                 }
