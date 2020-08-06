@@ -65,6 +65,9 @@ namespace Vendr.PaymentProviders.Klarna
             {
                 Reference = orderLine.Sku,
                 Name = orderLine.Name,
+                Type = !string.IsNullOrWhiteSpace(settings.ProductTypePropertyAlias) && orderLine.Properties.ContainsKey(settings.ProductTypePropertyAlias)
+                    ? orderLine.Properties[settings.ProductTypePropertyAlias]?.Value
+                    : null,
                 TaxRate = (int)(orderLine.TaxRate.Value * 10000),
                 UnitPrice = (int)AmountToMinorUnits(orderLine.UnitPrice.WithoutDiscounts.WithTax),
                 Quantity = (int)orderLine.Quantity,
@@ -164,7 +167,23 @@ namespace Vendr.PaymentProviders.Klarna
                 {
                     PlaceOrderMode = settings.Capture 
                         ? KlarnaHppOptions.PlaceOrderModes.CAPTURE_ORDER
-                        : KlarnaHppOptions.PlaceOrderModes.PLACE_ORDER
+                        : KlarnaHppOptions.PlaceOrderModes.PLACE_ORDER,
+                    LogoUrl = !string.IsNullOrWhiteSpace(settings.LogoUrl)
+                        ? settings.LogoUrl.Trim()
+                        : null,
+                    PageTitle = !string.IsNullOrWhiteSpace(settings.PageTitle)
+                        ? settings.PageTitle.Trim()
+                        : null,
+                    PaymentMethodCategories = !string.IsNullOrWhiteSpace(settings.PaymentMethodCategories)
+                        ? settings.PaymentMethodCategories.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(x => x.Trim())
+                            .Where(x => !string.IsNullOrWhiteSpace(x))
+                            .ToArray()
+                        : null,
+                    PaymentMethodCategory = !string.IsNullOrWhiteSpace(settings.PaymentMethodCategory)
+                        ? settings.PaymentMethodCategory.Trim()
+                        : null,
+                    PaymentFallback = settings.EnableFallbacks
                 },
                 MerchantUrls = new KlarnaHppMerchantUrls
                 {

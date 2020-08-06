@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace Vendr.PaymentProviders.Klarna.Api.Models
 {
@@ -13,5 +14,20 @@ namespace Vendr.PaymentProviders.Klarna.Api.Models
 
         [JsonProperty("place_order_mode")]
         public string PlaceOrderMode { get; set; }
+
+        [JsonProperty("logo_url")]
+        public string LogoUrl { get; set; }
+
+        [JsonProperty("page_title")]
+        public string PageTitle { get; set; }
+
+        [JsonProperty("payment_method_categories")]
+        public string[] PaymentMethodCategories { get; set; }
+
+        [JsonProperty("payment_method_category")]
+        public string PaymentMethodCategory { get; set; }
+
+        [JsonProperty("payment_fallback")]
+        public bool PaymentFallback { get; set; }
     }
 }

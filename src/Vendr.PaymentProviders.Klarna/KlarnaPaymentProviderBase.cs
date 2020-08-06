@@ -1,7 +1,4 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.IO;
-using Vendr.Core.Models;
+﻿using Vendr.Core.Models;
 using Vendr.Core.Web.Api;
 using Vendr.Core.Web.PaymentProviders;
 using Vendr.PaymentProviders.Klarna.Api.Models;
@@ -21,13 +18,13 @@ namespace Vendr.PaymentProviders.Klarna
             {
                 return new LiveKlarnaClientConfig(settings.LiveApiUsername,
                     settings.LiveApiPassword,
-                    (KlarnaApiRegion)Enum.Parse(typeof(KlarnaApiRegion), settings.ApiRegion));
+                    settings.ApiRegion);
             }
             else
             {
                 return new PlaygroundKlarnaClientConfig(settings.TestApiUsername,
                     settings.TestApiPassword,
-                    (KlarnaApiRegion)Enum.Parse(typeof(KlarnaApiRegion), settings.ApiRegion));
+                    settings.ApiRegion);
             }
         }
 

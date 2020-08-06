@@ -1,4 +1,5 @@
 ﻿using Vendr.Core.Web.PaymentProviders;
+using Vendr.PaymentProviders.Klarna.Api.Models;
 
 namespace Vendr.PaymentProviders.Klarna
 {
@@ -18,12 +19,6 @@ namespace Vendr.PaymentProviders.Klarna
             Description = "The URL to return to if the payment attempt errors. eg: /error/",
             SortOrder = 300)]
         public string ErrorUrl { get; set; }
-
-
-        //[PaymentProviderSetting(Name = "Product Type Property Alias",
-        //    Description = "The order line property alias containing the type of the product. Can be one of 'physical', 'digital' or 'gift_card'. Defaults to 'physical'.",
-        //    SortOrder = 400)]
-        //public string ProductTypePropertyAlias { get; set; }
 
 
         [PaymentProviderSetting(Name = "Billing Address (Line 1) Property Alias",
@@ -54,9 +49,9 @@ namespace Vendr.PaymentProviders.Klarna
 
 
         [PaymentProviderSetting(Name = "API Region",
-            Description = "The Klarna API Region to use. Can be either 'Europe', 'NorthAmerica' or 'Oceana'.",
+            Description = "The Klarna API Region to use.",
             SortOrder = 1000)]
-        public string ApiRegion { get; set; }
+        public KlarnaApiRegion ApiRegion { get; set; }
 
 
 
@@ -95,5 +90,47 @@ namespace Vendr.PaymentProviders.Klarna
             Description = "Set whether to process payments in test mode.",
             SortOrder = 10000)]
         public bool TestMode { get; set; }
+
+
+        // ============================
+        // Advanced
+        // ============================
+
+
+        [PaymentProviderSetting(Name = "Logo Url",
+            Description = "Fully qualified URL of a logo image to display on the payment page.",
+            SortOrder = 100,
+            IsAdvanced = true)]
+        public string LogoUrl { get; set; }
+
+        [PaymentProviderSetting(Name = "Page Title",
+            Description = "A custom title to display on the payment page.",
+            SortOrder = 100,
+            IsAdvanced = true)]
+        public string PageTitle { get; set; }
+
+        [PaymentProviderSetting(Name = "Product Type Property Alias",
+            Description = "The order line property alias containing the type of the product. Property value can be one of either 'physical' or 'digital'.",
+            SortOrder = 200,
+            IsAdvanced = true)]
+        public string ProductTypePropertyAlias { get; set; }
+
+        [PaymentProviderSetting(Name = "Payment Method Categories",
+            Description = "Comma separated list of payment method categories to show on the payment page. If empty, all allowable options will be presented. Options are DIRECT_DEBIT, DIRECT_BANK_TRANSFER, PAY_NOW, PAY_LATER and PAY_OVER_TIME",
+            SortOrder = 300,
+            IsAdvanced = true)]
+        public string PaymentMethodCategories { get; set; }
+
+        [PaymentProviderSetting(Name = "Payment Method Category",
+            Description = "The payment method category to show on the payment page. Options are DIRECT_DEBIT, DIRECT_BANK_TRANSFER, PAY_NOW, PAY_LATER and PAY_OVER_TIME",
+            SortOrder = 400,
+            IsAdvanced = true)]
+        public string PaymentMethodCategory { get; set; }
+
+        [PaymentProviderSetting(Name = "Enable Fallbacks",
+            Description = "Set whether to fallback to other payment options if the initial payment attempt fails before redirecting back to the site.",
+            SortOrder = 500,
+            IsAdvanced = true)]
+        public bool EnableFallbacks { get; set; }
     }
 }

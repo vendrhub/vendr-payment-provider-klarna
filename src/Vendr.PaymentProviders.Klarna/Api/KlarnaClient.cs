@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using System.Xml;
 using Vendr.PaymentProviders.Klarna.Api.Models;
 
 namespace Vendr.PaymentProviders.Klarna.Api
@@ -84,7 +85,7 @@ namespace Vendr.PaymentProviders.Klarna.Api
                 .ConfigureRequest(x => x.JsonSerializer = new NewtonsoftJsonSerializer(new JsonSerializerSettings
                 {
                     NullValueHandling = NullValueHandling.Ignore,
-                    ObjectCreationHandling = ObjectCreationHandling.Replace
+                    ObjectCreationHandling = ObjectCreationHandling.Replace,
                 })) 
                 .WithHeader("Cache-Control", "no-cache")
                 .WithBasicAuth(_config.Username, _config.Password);
