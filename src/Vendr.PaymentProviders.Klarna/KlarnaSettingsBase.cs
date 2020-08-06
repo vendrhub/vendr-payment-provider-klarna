@@ -20,10 +20,10 @@ namespace Vendr.PaymentProviders.Klarna
         public string ErrorUrl { get; set; }
 
 
-        [PaymentProviderSetting(Name = "Product Type Property Alias",
-            Description = "The order line property alias containing the type of the product. Can be one of 'physical', 'digital' or 'gift_card'. Defaults to 'physical'.",
-            SortOrder = 400)]
-        public string ProductTypePropertyAlias { get; set; }
+        //[PaymentProviderSetting(Name = "Product Type Property Alias",
+        //    Description = "The order line property alias containing the type of the product. Can be one of 'physical', 'digital' or 'gift_card'. Defaults to 'physical'.",
+        //    SortOrder = 400)]
+        //public string ProductTypePropertyAlias { get; set; }
 
 
         [PaymentProviderSetting(Name = "Billing Address (Line 1) Property Alias",

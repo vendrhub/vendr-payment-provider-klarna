@@ -57,6 +57,74 @@ namespace Vendr.PaymentProviders.Klarna
                 throw new Exception("Currency must be a valid ISO 4217 currency code: " + currency.Name);
             }
 
+            // Prepair order lines
+            // NB: We add order lines without any discounts applied as we'll then add
+            // one global discount amount at the end. This is just the easiest way to
+            // allow everything to add up and successfully validate at the Klarna end.
+            var orderLines = order.OrderLines.Select(orderLine => new KlarnaOrderLine
+            {
+                Reference = orderLine.Sku,
+                Name = orderLine.Name,
+                TaxRate = (int)(orderLine.TaxRate.Value * 10000),
+                UnitPrice = (int)AmountToMinorUnits(orderLine.UnitPrice.WithoutDiscounts.WithTax),
+                Quantity = (int)orderLine.Quantity,
+                TotalAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutDiscounts.WithTax),
+                TotalTaxAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutDiscounts.Tax)
+            }).ToList();
+
+            // Add shipping method fee orderline
+            if (order.ShippingInfo.ShippingMethodId.HasValue && order.ShippingInfo.TotalPrice.Value.WithTax > 0) 
+            {
+                var shippingMethod = Vendr.Services.ShippingMethodService.GetShippingMethod(order.ShippingInfo.ShippingMethodId.Value);
+                
+                orderLines.Add(new KlarnaOrderLine
+                {
+                    Reference = shippingMethod.Sku,
+                    Name = shippingMethod.Name + " Fee",
+                    Type = KlarnaOrderLine.Types.SHIPPING_FEE,
+                    TaxRate = (int)(order.ShippingInfo.TaxRate * 10000),
+                    UnitPrice = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutDiscounts.WithTax),
+                    Quantity = 1,
+                    TotalAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutDiscounts.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutDiscounts.Tax),
+                });
+            }
+
+            // Add payment method fee (as surcharge) orderline
+            if (order.PaymentInfo.TotalPrice.Value.WithTax > 0)
+            {
+                var paymentMethod = Vendr.Services.PaymentMethodService.GetPaymentMethod(order.PaymentInfo.PaymentMethodId.Value);
+                
+                orderLines.Add(new KlarnaOrderLine
+                {
+                    Reference = paymentMethod.Sku,
+                    Name = paymentMethod.Name + " Fee",
+                    Type = KlarnaOrderLine.Types.SURCHARGE,
+                    TaxRate = (int)(order.PaymentInfo.TaxRate * 10000),
+                    UnitPrice = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutDiscounts.WithTax),
+                    Quantity = 1,
+                    TotalAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutDiscounts.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutDiscounts.Tax),
+                });
+            }
+
+            // Add any discounts
+            if (order.TotalPrice.TotalDiscount > 0)
+            {
+                orderLines.Add(new KlarnaOrderLine
+                {
+                    Reference = "DISCOUNT",
+                    Name = "Discounts",
+                    Type = KlarnaOrderLine.Types.DISCOUNT,
+                    TaxRate = (int)(order.TaxRate * 10000),
+                    UnitPrice = 0,
+                    Quantity = 1,
+                    TotalDiscountAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalDiscount.WithTax),
+                    TotalAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalDiscount.WithTax) * -1,
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalDiscount.Tax) * -1,
+                });
+            }
+
             // Create a merchant session
             var resp1 = client.CreateMerchantSession(new KlarnaCreateMerchantSessionOptions
             {
@@ -65,16 +133,9 @@ namespace Vendr.PaymentProviders.Klarna
                 PurchaseCurrency = currencyCode,
                 Locale = order.LanguageIsoCode, // TODO: Validate?
 
-                OrderLines = order.OrderLines.Select(orderLine => new KlarnaOrderLine
-                {
-                    Reference = orderLine.Sku,
-                    Name = orderLine.Name,
-                    UnitPrice = (int)AmountToMinorUnits(orderLine.UnitPrice.WithoutDiscounts.WithTax),
-                    Quantity = (int)orderLine.Quantity,
-                    TotalAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.Value.WithTax),
-                    TotalDiscountAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.TotalDiscount.WithTax),
-                }).ToList(),
+                OrderLines = orderLines,
                 OrderAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.WithTax),
+                OrderTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.Tax),
 
                 BillingAddress = new KlarnaAddress
                 {
