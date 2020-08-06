@@ -93,10 +93,13 @@
     <Compile Include="Api\KlarnaClient.cs" />
     <Compile Include="Api\Models\KlarnaAddress.cs" />
     <Compile Include="Api\Models\KlarnaApiRegion.cs" />
-    <Compile Include="Api\Models\KlarnaAssetUrls.cs" />
     <Compile Include="Api\Models\KlarnaClientConfig.cs" />
-    <Compile Include="Api\Models\KlarnaCreateHppSessionRequest.cs" />
-    <Compile Include="Api\Models\KlarnaCreateMerchantSessionRequest.cs" />
+    <Compile Include="Api\Models\KlarnaCreateHppSessionOptions.cs" />
+    <Compile Include="Api\Models\KlarnaCreateMerchantSessionOptions.cs" />
+    <Compile Include="Api\Models\KlarnaOrder.cs" />
+    <Compile Include="Api\Models\KlarnaOrderBase.cs" />
+    <Compile Include="Api\Models\KlarnaCaptureOptions.cs" />
+    <Compile Include="Api\Models\KlarnaRefundOptions.cs" />
     <Compile Include="Api\Models\KlarnaSessionEvent.cs" />
     <Compile Include="Api\Models\KlarnaHppMerchantUrls.cs" />
     <Compile Include="Api\Models\KlarnaHppOptions.cs" />
@@ -104,7 +107,6 @@
     <Compile Include="Api\Models\KlarnaMerchantSession.cs" />
     <Compile Include="Api\Models\KlarnaMerchantUrls.cs" />
     <Compile Include="Api\Models\KlarnaOrderLine.cs" />
-    <Compile Include="Api\Models\KlarnaPaymentMethodCategory.cs" />
     <Compile Include="Api\Models\PlaygroundKlarnaClientConfig.cs" />
     <Compile Include="Api\Models\LiveKlarnaClientConfig.cs" />
     <Compile Include="KlarnaPaymentProviderBase.cs" />

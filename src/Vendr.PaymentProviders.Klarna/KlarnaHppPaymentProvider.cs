@@ -1,13 +1,10 @@
-﻿using Newtonsoft.Json;
-using Org.BouncyCastle.Bcpg.OpenPgp;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
 using Vendr.Core;
 using Vendr.Core.Models;
-using Vendr.Core.Web;
 using Vendr.Core.Web.Api;
 using Vendr.Core.Web.PaymentProviders;
 using Vendr.PaymentProviders.Klarna.Api;
@@ -61,7 +58,7 @@ namespace Vendr.PaymentProviders.Klarna
             }
 
             // Create a merchant session
-            var resp1 = client.CreateMerchantSession(new KlarnaCreateMerchantSessionRequest
+            var resp1 = client.CreateMerchantSession(new KlarnaCreateMerchantSessionOptions
             {
                 MerchantReference1 = order.OrderNumber,
                 PurchaseCountry = billingCountryCode,
@@ -99,7 +96,7 @@ namespace Vendr.PaymentProviders.Klarna
             });;
 
             // Create a HPP session
-            var resp2 = client.CreateHppSession(new KlarnaCreateHppSessionRequest
+            var resp2 = client.CreateHppSession(new KlarnaCreateHppSessionOptions
             {
                 PaymentSessionUrl = $"{clientConfig.BaseUrl}/payments/v1/sessions/{resp1.SessionId}",
                 Options = new KlarnaHppOptions
@@ -182,16 +179,16 @@ namespace Vendr.PaymentProviders.Klarna
                 var evt = client.ParseSessionEvent(request.InputStream);
                 if (evt != null && evt.Session.Status == KlarnaSession.Statuses.COMPLETED)
                 {
+                    var klarnaOrder = client.GetOrder(evt.Session.OrderId);
+
                     return new CallbackResult
                     {
                         TransactionInfo = new TransactionInfo
                         {
-                            AmountAuthorized = order.TotalPrice.Value.WithTax,
+                            AmountAuthorized = AmountFromMinorUnits(klarnaOrder.OriginalOrderAmount),
                             TransactionFee = 0m,
-                            TransactionId = evt.Session.OrderId,
-                            PaymentStatus = settings.Capture
-                                ? PaymentStatus.Captured
-                                : PaymentStatus.Authorized
+                            TransactionId = klarnaOrder.OrderId,
+                            PaymentStatus = GetPaymentStatus(klarnaOrder)
                         },
                         MetaData = new Dictionary<string, string>
                         {
@@ -205,27 +202,130 @@ namespace Vendr.PaymentProviders.Klarna
             return CallbackResult.Ok();
         }
 
-        public override ApiResult CancelPayment(OrderReadOnly order, KlarnaHppSettings settings)
+        public override ApiResult FetchPaymentStatus(OrderReadOnly order, KlarnaHppSettings settings)
         {
-            return new ApiResult()
+            try
             {
-                TransactionInfo = new TransactionInfoUpdate() {
-                    TransactionId = order.TransactionInfo.TransactionId,
-                    PaymentStatus = PaymentStatus.Cancelled
+                var orderId = order.TransactionInfo.TransactionId;
+
+                var clientConfig = GetKlarnaClientConfig(settings);
+                var client = new KlarnaClient(clientConfig);
+
+                var klarnaOrder = client.GetOrder(orderId);
+                if (klarnaOrder != null)
+                {
+                    return new ApiResult
+                    {
+                        TransactionInfo = new TransactionInfoUpdate
+                        {
+                            TransactionId = klarnaOrder.OrderId,
+                            PaymentStatus = GetPaymentStatus(klarnaOrder)
+                        }
+                    };
                 }
-            };
+
+            }
+            catch (Exception ex)
+            {
+                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error fetching Klarna payment status for order {OrderNumber}", order.OrderNumber);
+            }
+
+            return ApiResult.Empty;
         }
 
         public override ApiResult CapturePayment(OrderReadOnly order, KlarnaHppSettings settings)
         {
-            return new ApiResult()
+            try
             {
-                TransactionInfo = new TransactionInfoUpdate()
+                var orderId = order.TransactionInfo.TransactionId;
+
+                var clientConfig = GetKlarnaClientConfig(settings);
+                var client = new KlarnaClient(clientConfig);
+
+                client.CaptureOrder(orderId, new KlarnaCaptureOptions
                 {
-                    TransactionId = order.TransactionInfo.TransactionId,
-                    PaymentStatus = PaymentStatus.Captured
-                }
-            };
+                    Description = $"Capture Order {order.OrderNumber}",
+                    CapturedAmount = (int)AmountToMinorUnits(order.TransactionInfo.AmountAuthorized.Value)
+                });
+
+                return new ApiResult
+                {
+                    TransactionInfo = new TransactionInfoUpdate
+                    {
+                        TransactionId = orderId,
+                        PaymentStatus = PaymentStatus.Captured
+                    }
+                };
+
+            }
+            catch (Exception ex)
+            {
+                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error capturing Klarna payment for order {OrderNumber}", order.OrderNumber);
+            }
+
+            return ApiResult.Empty;
+        }
+
+        public override ApiResult RefundPayment(OrderReadOnly order, KlarnaHppSettings settings)
+        {
+            try
+            {
+                var orderId = order.TransactionInfo.TransactionId;
+
+                var clientConfig = GetKlarnaClientConfig(settings);
+                var client = new KlarnaClient(clientConfig);
+
+                client.RefundOrder(orderId, new KlarnaRefundOptions
+                {
+                    Description = $"Refund Order {order.OrderNumber}",
+                    RefundAmount = (int)AmountToMinorUnits(order.TransactionInfo.AmountAuthorized.Value)
+                });
+
+                return new ApiResult
+                {
+                    TransactionInfo = new TransactionInfoUpdate
+                    {
+                        TransactionId = orderId,
+                        PaymentStatus = PaymentStatus.Refunded
+                    }
+                };
+
+            }
+            catch (Exception ex)
+            {
+                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error refunding Klarna payment for order {OrderNumber}", order.OrderNumber);
+            }
+
+            return ApiResult.Empty;
+        }
+
+        public override ApiResult CancelPayment(OrderReadOnly order, KlarnaHppSettings settings)
+        {
+            try
+            {
+                var orderId = order.TransactionInfo.TransactionId;
+
+                var clientConfig = GetKlarnaClientConfig(settings);
+                var client = new KlarnaClient(clientConfig);
+
+                client.CancelOrder(orderId);
+
+                return new ApiResult
+                {
+                    TransactionInfo = new TransactionInfoUpdate
+                    {
+                        TransactionId = orderId,
+                        PaymentStatus = PaymentStatus.Cancelled
+                    }
+                };
+
+            }
+            catch (Exception ex)
+            {
+                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error canceling Klarna payment for order {OrderNumber}", order.OrderNumber);
+            }
+
+            return ApiResult.Empty;
         }
     }
 }

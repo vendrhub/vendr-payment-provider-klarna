@@ -25,18 +25,43 @@ namespace Vendr.PaymentProviders.Klarna.Api
             _config = config;
         }
 
-        public KlarnaMerchantSession CreateMerchantSession(KlarnaCreateMerchantSessionRequest request)
+        public KlarnaMerchantSession CreateMerchantSession(KlarnaCreateMerchantSessionOptions opts)
         {
             return Request("/payments/v1/sessions", (req) => req
-                .PostJsonAsync(request)
+                .PostJsonAsync(opts)
                 .ReceiveJson<KlarnaMerchantSession>());
         }
 
-        public KlarnaHppSession CreateHppSession(KlarnaCreateHppSessionRequest request)
+        public KlarnaHppSession CreateHppSession(KlarnaCreateHppSessionOptions opts)
         {
             return Request("/hpp/v1/sessions", (req) => req
-                .PostJsonAsync(request)
+                .PostJsonAsync(opts)
                 .ReceiveJson<KlarnaHppSession>());
+        }
+
+        public KlarnaOrder GetOrder(string orderId)
+        {
+            return Request($"/ordermanagement/v1/orders/{orderId}", (req) => req
+                .GetAsync()
+                .ReceiveJson<KlarnaOrder>());
+        }
+
+        public void CancelOrder(string orderId)
+        {
+            Request($"/ordermanagement/v1/orders/{orderId}/cancel", (req) => req
+                .PostAsync(null));
+        }
+
+        public void CaptureOrder(string orderId, KlarnaCaptureOptions opts)
+        {
+            Request($"/ordermanagement/v1/orders/{orderId}/captures", (req) => req
+                .PostJsonAsync(opts));
+        }
+
+        public void RefundOrder(string orderId, KlarnaRefundOptions opts)
+        {
+            Request($"/ordermanagement/v1/orders/{orderId}/refunds", (req) => req
+                .PostJsonAsync(opts));
         }
 
         public KlarnaSessionEvent ParseSessionEvent(Stream stream)
@@ -61,7 +86,6 @@ namespace Vendr.PaymentProviders.Klarna.Api
                     NullValueHandling = NullValueHandling.Ignore,
                     ObjectCreationHandling = ObjectCreationHandling.Replace
                 })) 
-                .WithHeader("Content-Type", "application/json")
                 .WithHeader("Cache-Control", "no-cache")
                 .WithBasicAuth(_config.Username, _config.Password);
 

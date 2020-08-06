@@ -2,7 +2,7 @@
 
 namespace Vendr.PaymentProviders.Klarna.Api.Models
 {
-    public class KlarnaCreateHppSessionRequest
+    public class KlarnaCreateHppSessionOptions
     {
         [JsonProperty("payment_session_url")]
         public string PaymentSessionUrl { get; set; }
@@ -13,7 +13,7 @@ namespace Vendr.PaymentProviders.Klarna.Api.Models
         [JsonProperty("options")]
         public KlarnaHppOptions Options { get; set; }
 
-        public KlarnaCreateHppSessionRequest()
+        public KlarnaCreateHppSessionOptions()
         {
             MerchantUrls = new KlarnaHppMerchantUrls();
             Options = new KlarnaHppOptions();
