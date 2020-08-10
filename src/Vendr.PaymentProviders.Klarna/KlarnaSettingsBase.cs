@@ -97,17 +97,17 @@ namespace Vendr.PaymentProviders.Klarna
         // ============================
 
 
-        [PaymentProviderSetting(Name = "Logo Url",
+        [PaymentProviderSetting(Name = "Payment Page Logo Url",
             Description = "Fully qualified URL of a logo image to display on the payment page.",
             SortOrder = 100,
             IsAdvanced = true)]
-        public string LogoUrl { get; set; }
+        public string PaymentPageLogoUrl { get; set; }
 
-        [PaymentProviderSetting(Name = "Page Title",
+        [PaymentProviderSetting(Name = "Payment Page Page Title",
             Description = "A custom title to display on the payment page.",
             SortOrder = 100,
             IsAdvanced = true)]
-        public string PageTitle { get; set; }
+        public string PaymentPagePageTitle { get; set; }
 
         [PaymentProviderSetting(Name = "Product Type Property Alias",
             Description = "The order line property alias containing the type of the product. Property value can be one of either 'physical' or 'digital'.",

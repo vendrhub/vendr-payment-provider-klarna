@@ -168,11 +168,11 @@ namespace Vendr.PaymentProviders.Klarna
                     PlaceOrderMode = settings.Capture 
                         ? KlarnaHppOptions.PlaceOrderModes.CAPTURE_ORDER
                         : KlarnaHppOptions.PlaceOrderModes.PLACE_ORDER,
-                    LogoUrl = !string.IsNullOrWhiteSpace(settings.LogoUrl)
-                        ? settings.LogoUrl.Trim()
+                    LogoUrl = !string.IsNullOrWhiteSpace(settings.PaymentPageLogoUrl)
+                        ? settings.PaymentPageLogoUrl.Trim()
                         : null,
-                    PageTitle = !string.IsNullOrWhiteSpace(settings.PageTitle)
-                        ? settings.PageTitle.Trim()
+                    PageTitle = !string.IsNullOrWhiteSpace(settings.PaymentPagePageTitle)
+                        ? settings.PaymentPagePageTitle.Trim()
                         : null,
                     PaymentMethodCategories = !string.IsNullOrWhiteSpace(settings.PaymentMethodCategories)
                         ? settings.PaymentMethodCategories.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
