@@ -7,13 +7,19 @@ trigger:
   branches:
     include: 
       - dev
+      - hotfix/*
   tags:
     include:
       - v*
 
 variables:
-  vmImageName: 'vs2017-win2016'
-  nuGetOrgServiceCreds: 'NuGet.org (Vendr)'
+  - group: 'vendr'
+  - name: 'vmImageName'
+    value: 'vs2017-win2016'
+  - name: 'nuGetOrgServiceCreds'
+    value: 'NuGet.org (Vendr)'
+  - name: 'packageName'
+    value: 'Vendr.PaymentProviders.Klarna'
 
 stages:
 - stage: Build
@@ -54,6 +60,20 @@ stages:
         deploy:
 
           steps:
+          - task: DotNetCoreInstaller@0
+            inputs:
+              version: 2.2.103
+
+          - powershell: |
+              # get the umbraco package file (assumes there is just one zip file package)
+              $f = (Get-ChildItem -Path "$(Pipeline.Workspace)\BuildArtifacts\packages\*" -File -Include $(packageName).*.zip | Select-Object -First 1).FullName
+              # assign the filename to a variable        
+              echo "$f"       
+              echo "##vso[task.setvariable variable=umbracoPackageFile]$f" 
+            displayName: 'Get Umbraco Package path'
+
+          # Unstable Deploy
+
           - task: NuGetCommand@2
             displayName: 'Deploy to unstable feed'
             inputs:
@@ -61,6 +81,8 @@ stages:
               packagesToPush: '$(Pipeline.Workspace)/BuildArtifacts/**/*.nupkg;!$(Pipeline.Workspace)/BuildArtifacts/**/*.snupkg'
               nuGetFeedType: 'internal'
               publishVstsFeed: '576196d3-9f20-4a86-8fd6-b0d7428fe5ee/cfadaa44-aa4e-45d7-8303-91a38d020c50'
+
+          # Realease Deploy
 
           - task: NuGetCommand@2
             displayName: 'Deploy to NuGet.org'
@@ -70,3 +92,15 @@ stages:
               nuGetFeedType: external
               packagesToPush: '$(Pipeline.Workspace)/BuildArtifacts/**/*.nupkg;!$(Pipeline.Workspace)/BuildArtifacts/**/*.snupkg'
               publishFeedCredentials: '$(nuGetOrgServiceCreds)'
+
+          - script: |
+              dotnet tool install --global Umbraco.Tools.Packages
+            condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/tags/v'))
+            displayName: 'Install UmbPack'
+
+          - script: |
+              umbpack push $(umbracoPackageFile) -k %OUR_UMBRACO_API_KEY% -w v860,v850,v840,v830,v820 -c false -a $(packageName).*.zip
+            condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/tags/v'))
+            displayName: 'Deploy to Our Umbraco'
+            env:
+              OUR_UMBRACO_API_KEY: $(our-umbraco-api-key)
