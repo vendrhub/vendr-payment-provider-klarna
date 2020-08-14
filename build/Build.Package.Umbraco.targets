@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="14.0">
+
+    <!-- IMPORTS -->
+    <PropertyGroup>
+        <ILRepackExe>$(BuildToolsDir)\ILRepack\ILRepack.exe</ILRepackExe>
+        <ODMSBuildUmbracoTasksPath>$(BuildToolsDir)\ODMSBuildUmbracoTasks</ODMSBuildUmbracoTasksPath>
+    </PropertyGroup>
+
+    <Import Project="$(ODMSBuildUmbracoTasksPath)\OD.MSBuild.Umbraco.Tasks.Targets" />
+
+    <!-- BACKUP PACKAGE DLL -->
+    <Target Name="BackupPackageDll">
+        <Copy SourceFiles="$(ArtifactFilesDir)\bin\$(ProjectName).dll" 
+              DestinationFiles="$(ArtifactFilesDir)\bin\$(ProjectName).bak" />
+    </Target>
+
+    <!-- MERGE DLLS -->
+    <Target Name="MergeDlls" DependsOnTargets="BackupPackageDll">
+        <ItemGroup>
+            <Dlls Include="$(ArtifactFilesDir)\bin\$(ProjectName).dll" />
+            <Dlls Include="$(ArtifactFilesDir)\bin\**\*.dll" Exclude="$(ArtifactFilesDir)\bin\$(ProjectName).dll" />
+        </ItemGroup>
+        <Exec Command="$(ILRepackExe) /ndebug /internalize /copyattrs /lib:$(SourceDir)\$(ProjectName)\bin\$(BuildConfiguration)\ /out:$(ArtifactFilesDir)\bin\$(ProjectName).dll @(Dlls, ' ') /targetplatform:v4" />
+    </Target>
+    
+    <!-- PACKAGE -->
+    <Target Name="PackageUmbracoFiles" DependsOnTargets="MergeDlls">
+        <ItemGroup>
+            <ManifestFiles Include="$(ArtifactFilesDir)\bin\$(ProjectName).dll" />
+        </ItemGroup>
+        <!-- Umbraco -->
+        <Pack ManifestFile="$(BuildDir)\Umbraco\$(PaymentProviderName).package.xml"
+			WorkingDirectory="$(ArtifactFilesDir)"
+			OutputDirectory="$(ArtifactPackagesDir)"
+            PackageVersion="$(GitVersion_NuGetVersion)"
+            MinimumRequiredUmbracoVersion="$(MinUmbracoVersion)"
+			Files="@(ManifestFiles)" />
+    </Target>
+
+    <!-- RESTORE PACKAGE DLL BACKUP -->
+    <Target Name="RestorePackageDllBackup" DependsOnTargets="PackageUmbracoFiles">
+        <Move SourceFiles="$(ArtifactFilesDir)\bin\$(ProjectName).bak"
+              DestinationFiles="$(ArtifactFilesDir)\bin\$(ProjectName).dll"
+              OverwriteReadOnlyFiles="true"/>
+    </Target>
+
+    <Target Name="PackageUmbraco" DependsOnTargets="RestorePackageDllBackup" />
+
+</Project>
