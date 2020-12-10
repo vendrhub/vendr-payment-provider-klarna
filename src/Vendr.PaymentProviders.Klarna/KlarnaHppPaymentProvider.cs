@@ -69,10 +69,10 @@ namespace Vendr.PaymentProviders.Klarna
                     ? orderLine.Properties[settings.ProductTypePropertyAlias]?.Value
                     : null,
                 TaxRate = (int)(orderLine.TaxRate.Value * 10000),
-                UnitPrice = (int)AmountToMinorUnits(orderLine.UnitPrice.WithoutDiscounts.WithTax),
+                UnitPrice = (int)AmountToMinorUnits(orderLine.UnitPrice.WithoutAdjustments.WithTax),
                 Quantity = (int)orderLine.Quantity,
-                TotalAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutDiscounts.WithTax),
-                TotalTaxAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutDiscounts.Tax)
+                TotalAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutAdjustments.WithTax),
+                TotalTaxAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutAdjustments.Tax)
             }).ToList();
 
             // Add shipping method fee orderline
@@ -86,10 +86,10 @@ namespace Vendr.PaymentProviders.Klarna
                     Name = shippingMethod.Name + " Fee",
                     Type = KlarnaOrderLine.Types.SHIPPING_FEE,
                     TaxRate = (int)(order.ShippingInfo.TaxRate * 10000),
-                    UnitPrice = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutDiscounts.WithTax),
+                    UnitPrice = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
                     Quantity = 1,
-                    TotalAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutDiscounts.WithTax),
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutDiscounts.Tax),
+                    TotalAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutAdjustments.Tax),
                 });
             }
 
@@ -104,15 +104,15 @@ namespace Vendr.PaymentProviders.Klarna
                     Name = paymentMethod.Name + " Fee",
                     Type = KlarnaOrderLine.Types.SURCHARGE,
                     TaxRate = (int)(order.PaymentInfo.TaxRate * 10000),
-                    UnitPrice = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutDiscounts.WithTax),
+                    UnitPrice = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
                     Quantity = 1,
-                    TotalAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutDiscounts.WithTax),
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutDiscounts.Tax),
+                    TotalAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutAdjustments.Tax),
                 });
             }
 
             // Add any discounts
-            if (order.TotalPrice.TotalDiscount > 0)
+            if (order.TotalPrice.TotalAdjustment < 0)
             {
                 orderLines.Add(new KlarnaOrderLine
                 {
@@ -122,9 +122,23 @@ namespace Vendr.PaymentProviders.Klarna
                     TaxRate = (int)(order.TaxRate * 10000),
                     UnitPrice = 0,
                     Quantity = 1,
-                    TotalDiscountAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalDiscount.WithTax),
-                    TotalAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalDiscount.WithTax) * -1,
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalDiscount.Tax) * -1,
+                    TotalDiscountAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.WithTax) * -1,
+                    TotalAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.Tax),
+                });
+            } 
+            else if (order.TotalPrice.TotalAdjustment > 0)
+            {
+                orderLines.Add(new KlarnaOrderLine
+                {
+                    Reference = "FEE",
+                    Name = "Additional Fees",
+                    Type = KlarnaOrderLine.Types.SURCHARGE,
+                    TaxRate = (int)(order.TaxRate * 10000),
+                    UnitPrice = 0,
+                    Quantity = 1,
+                    TotalAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.Tax),
                 });
             }
 
