@@ -60,20 +60,7 @@ stages:
         deploy:
 
           steps:
-          - task: DotNetCoreInstaller@0
-            inputs:
-              version: 2.2.103
-
-          - powershell: |
-              # get the umbraco package file (assumes there is just one zip file package)
-              $f = (Get-ChildItem -Path "$(Pipeline.Workspace)\BuildArtifacts\packages\*" -File -Include $(packageName).*.zip | Select-Object -First 1).FullName
-              # assign the filename to a variable        
-              echo "$f"       
-              echo "##vso[task.setvariable variable=umbracoPackageFile]$f" 
-            displayName: 'Get Umbraco Package path'
-
           # Unstable Deploy
-
           - task: NuGetCommand@2
             displayName: 'Deploy to unstable feed'
             inputs:
@@ -82,7 +69,20 @@ stages:
               nuGetFeedType: 'internal'
               publishVstsFeed: '576196d3-9f20-4a86-8fd6-b0d7428fe5ee/cfadaa44-aa4e-45d7-8303-91a38d020c50'
 
-          # Realease Deploy
+          # Release Deploy
+          - task: UseDotNet@2
+            condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/tags/v'))
+            inputs:
+              version: 3.0.100
+
+          - powershell: |
+              # get the umbraco package file (assumes there is just one zip file package)
+              $f = (Get-ChildItem -Path "$(Pipeline.Workspace)\BuildArtifacts\packages\*" -File -Include $(packageName).*.zip | Select-Object -First 1).FullName
+              # assign the filename to a variable        
+              echo "$f" 
+              echo "##vso[task.setvariable variable=umbracoPackageFile]$f" 
+            displayName: 'Get Umbraco Package path'
+            condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/tags/v'))
 
           - task: NuGetCommand@2
             displayName: 'Deploy to NuGet.org'
@@ -99,7 +99,7 @@ stages:
             displayName: 'Install UmbPack'
 
           - script: |
-              umbpack push $(umbracoPackageFile) -k %OUR_UMBRACO_API_KEY% -w v860,v850,v840,v830,v820 -c false -a $(packageName).*.zip
+              umbpack push $(umbracoPackageFile) -k %OUR_UMBRACO_API_KEY% -w v860,v850,v840,v830,v820 -c true -a $(packageName).*.zip 
             condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/tags/v'))
             displayName: 'Deploy to Our Umbraco'
             env:

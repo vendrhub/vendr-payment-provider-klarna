@@ -82,11 +82,11 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
-    <Reference Include="Vendr.Core, Version=1.2.7.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Vendr.Core.1.2.7\lib\net472\Vendr.Core.dll</HintPath>
+    <Reference Include="Vendr.Core, Version=1.4.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Vendr.Core.1.4.0\lib\net472\Vendr.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Vendr.Core.Web, Version=1.2.7.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Vendr.Core.Web.1.2.7\lib\net472\Vendr.Core.Web.dll</HintPath>
+    <Reference Include="Vendr.Core.Web, Version=1.4.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Vendr.Core.Web.1.4.0\lib\net472\Vendr.Core.Web.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
