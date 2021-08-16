@@ -13,7 +13,7 @@
         <description>Klarna payment provider for Vendr, the eCommerce package for Umbrao v8+</description>
         <summary>Klarna payment provider for Vendr, the eCommerce package for Umbrao v8+</summary>
         <language>en-US</language>
-        <tags>umbraco ecommerce vendr</tags>
+        <tags>umbraco ecommerce vendr klarna</tags>
         <dependencies>
             <group targetFramework="net472">
                 <dependency id="Flurl" version="[2.8.2,2.999999)" />
