@@ -1,4 +1,4 @@
-﻿using Vendr.Core.Web.PaymentProviders;
+﻿using Vendr.Core.PaymentProviders;
 using Vendr.PaymentProviders.Klarna.Api.Models;
 
 namespace Vendr.PaymentProviders.Klarna

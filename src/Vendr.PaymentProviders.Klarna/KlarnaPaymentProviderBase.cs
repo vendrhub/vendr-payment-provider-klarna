@@ -1,7 +1,8 @@
 ﻿using Vendr.Core.Models;
-using Vendr.Core.Web.Api;
-using Vendr.Core.Web.PaymentProviders;
+using Vendr.Core.Api;
+using Vendr.Core.PaymentProviders;
 using Vendr.PaymentProviders.Klarna.Api.Models;
+using Vendr.Extensions;
 
 namespace Vendr.PaymentProviders.Klarna
 {
@@ -11,6 +12,30 @@ namespace Vendr.PaymentProviders.Klarna
         public KlarnaPaymentProviderBase(VendrContext vendr)
             : base(vendr)
         { }
+
+        public override string GetContinueUrl(PaymentProviderContext<TSettings> ctx)
+        {
+            ctx.Settings.MustNotBeNull("ctx.Settings");
+            ctx.Settings.ContinueUrl.MustNotBeNull("ctx.Settings.ContinueUrl");
+
+            return ctx.Settings.ContinueUrl;
+        }
+
+        public override string GetCancelUrl(PaymentProviderContext<TSettings> ctx)
+        {
+            ctx.Settings.MustNotBeNull("ctx.Settings");
+            ctx.Settings.CancelUrl.MustNotBeNull("ctx.Settings.CancelUrl");
+
+            return ctx.Settings.CancelUrl;
+        }
+
+        public override string GetErrorUrl(PaymentProviderContext<TSettings> ctx)
+        {
+            ctx.Settings.MustNotBeNull("ctx.Settings");
+            ctx.Settings.ErrorUrl.MustNotBeNull("ctx.Settings.ErrorUrl");
+
+            return ctx.Settings.ErrorUrl;
+        }
 
         protected KlarnaClientConfig GetKlarnaClientConfig(KlarnaSettingsBase settings)
         {

@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using System.Xml;
 using Vendr.PaymentProviders.Klarna.Api.Models;
 
 namespace Vendr.PaymentProviders.Klarna.Api
@@ -26,42 +25,42 @@ namespace Vendr.PaymentProviders.Klarna.Api
             _config = config;
         }
 
-        public KlarnaMerchantSession CreateMerchantSession(KlarnaCreateMerchantSessionOptions opts)
+        public async Task<KlarnaMerchantSession> CreateMerchantSessionAsync(KlarnaCreateMerchantSessionOptions opts)
         {
-            return Request("/payments/v1/sessions", (req) => req
+            return await RequestAsync("/payments/v1/sessions", async (req) => await req
                 .PostJsonAsync(opts)
                 .ReceiveJson<KlarnaMerchantSession>());
         }
 
-        public KlarnaHppSession CreateHppSession(KlarnaCreateHppSessionOptions opts)
+        public async Task<KlarnaHppSession> CreateHppSessionAsync(KlarnaCreateHppSessionOptions opts)
         {
-            return Request("/hpp/v1/sessions", (req) => req
+            return await RequestAsync("/hpp/v1/sessions", async (req) => await req
                 .PostJsonAsync(opts)
                 .ReceiveJson<KlarnaHppSession>());
         }
 
-        public KlarnaOrder GetOrder(string orderId)
+        public async Task<KlarnaOrder> GetOrderAsync(string orderId)
         {
-            return Request($"/ordermanagement/v1/orders/{orderId}", (req) => req
+            return await RequestAsync($"/ordermanagement/v1/orders/{orderId}", async (req) => await req
                 .GetAsync()
                 .ReceiveJson<KlarnaOrder>());
         }
 
-        public void CancelOrder(string orderId)
+        public async Task CancelOrderAsync(string orderId)
         {
-            Request($"/ordermanagement/v1/orders/{orderId}/cancel", (req) => req
+            await RequestAsync($"/ordermanagement/v1/orders/{orderId}/cancel", async (req) => await req
                 .PostAsync(null));
         }
 
-        public void CaptureOrder(string orderId, KlarnaCaptureOptions opts)
+        public async Task CaptureOrderAsync(string orderId, KlarnaCaptureOptions opts)
         {
-            Request($"/ordermanagement/v1/orders/{orderId}/captures", (req) => req
+            await RequestAsync($"/ordermanagement/v1/orders/{orderId}/captures", async (req) => await req
                 .PostJsonAsync(opts));
         }
 
-        public void RefundOrder(string orderId, KlarnaRefundOptions opts)
+        public async Task RefundOrderAsync(string orderId, KlarnaRefundOptions opts)
         {
-            Request($"/ordermanagement/v1/orders/{orderId}/refunds", (req) => req
+            await RequestAsync($"/ordermanagement/v1/orders/{orderId}/refunds", async (req) => await req
                 .PostJsonAsync(opts));
         }
 
@@ -79,7 +78,7 @@ namespace Vendr.PaymentProviders.Klarna.Api
             }
         }
 
-        private TResult Request<TResult>(string url, Func<IFlurlRequest, Task<TResult>> func)
+        private async Task<TResult> RequestAsync<TResult>(string url, Func<IFlurlRequest, Task<TResult>> func)
         {
             var req = new FlurlRequest(_config.BaseUrl + url)
                 .ConfigureRequest(x => x.JsonSerializer = new NewtonsoftJsonSerializer(new JsonSerializerSettings
@@ -90,7 +89,7 @@ namespace Vendr.PaymentProviders.Klarna.Api
                 .WithHeader("Cache-Control", "no-cache")
                 .WithBasicAuth(_config.Username, _config.Password);
 
-            return func.Invoke(req).Result;
+            return await func.Invoke(req);
         }
     }
 }

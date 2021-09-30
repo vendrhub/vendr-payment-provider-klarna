@@ -1,23 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
-using System.Web.Mvc;
-using Vendr.Core;
 using Vendr.Core.Models;
-using Vendr.Core.Web.Api;
-using Vendr.Core.Web.PaymentProviders;
+using Vendr.Core.Api;
+using Vendr.Core.PaymentProviders;
+using Vendr.Extensions;
 using Vendr.PaymentProviders.Klarna.Api;
 using Vendr.PaymentProviders.Klarna.Api.Models;
+using System.Threading.Tasks;
+using System.Web;
+using Vendr.Common.Logging;
 
 namespace Vendr.PaymentProviders.Klarna
 {
     [PaymentProvider("klarna-hpp", "Klarna (HPP)", "Klarna payment provider using the Klarna Hosted Payment Page (HPP)")]
     public class KlarnaHppPaymentProvider : KlarnaPaymentProviderBase<KlarnaHppSettings>
     {
-        public KlarnaHppPaymentProvider(VendrContext vendr)
+        private readonly ILogger<KlarnaHppPaymentProvider> _logger;
+
+        public KlarnaHppPaymentProvider(VendrContext vendr,
+            ILogger<KlarnaHppPaymentProvider> logger)
             : base(vendr)
-        { }
+        {
+            _logger = logger;
+        }
 
         public override bool CanFetchPaymentStatus => true;
         public override bool CanCancelPayments => true;
@@ -30,15 +36,38 @@ namespace Vendr.PaymentProviders.Klarna
             new TransactionMetaDataDefinition("klarnaReference", "Klarna Reference")
         };
 
-        public override PaymentFormResult GenerateForm(OrderReadOnly order, string continueUrl, string cancelUrl, string callbackUrl, KlarnaHppSettings settings)
+        public override string GetCancelUrl(PaymentProviderContext<KlarnaHppSettings> ctx)
+        {
+            ctx.Settings.MustNotBeNull("ctx.Settings");
+            ctx.Settings.CancelUrl.MustNotBeNull("ctx.Settings.CancelUrl");
+
+            var cancelUrl = ctx.Settings.CancelUrl;
+
+            if (ctx.Request != null)
+            {
+                var qs = HttpUtility.ParseQueryString(ctx.Request.RequestUri.Query);
+
+                var reason = qs["reason"];
+
+                cancelUrl = AppendQueryStringParam(cancelUrl, "reason", reason);
+
+                if (!string.IsNullOrWhiteSpace(ctx.Settings.ErrorUrl) && (reason == "failure" || reason == "error"))
+                    return AppendQueryStringParam(ctx.Settings.ErrorUrl, "reason", reason);
+
+            }
+
+            return cancelUrl;
+        }
+
+        public override async Task<PaymentFormResult> GenerateFormAsync(PaymentProviderContext<KlarnaHppSettings> ctx)
         {
             var klarnaSecretToken = Guid.NewGuid().ToString("N");
 
-            var clientConfig = GetKlarnaClientConfig(settings);
+            var clientConfig = GetKlarnaClientConfig(ctx.Settings);
             var client = new KlarnaClient(clientConfig);
 
             // Get currency information
-            var billingCountry = Vendr.Services.CountryService.GetCountry(order.PaymentInfo.CountryId.Value);
+            var billingCountry = Vendr.Services.CountryService.GetCountry(ctx.Order.PaymentInfo.CountryId.Value);
             var billingCountryCode = billingCountry.Code.ToUpperInvariant();
 
             // Ensure billing country has valid ISO 3166 code
@@ -48,7 +77,7 @@ namespace Vendr.PaymentProviders.Klarna
                 throw new Exception("Country must be a valid ISO 3166 billing country code: " + billingCountry.Name);
             }
 
-            var currency = Vendr.Services.CurrencyService.GetCurrency(order.CurrencyId);
+            var currency = Vendr.Services.CurrencyService.GetCurrency(ctx.Order.CurrencyId);
             var currencyCode = currency.Code.ToUpperInvariant();
 
             // Ensure currency has valid ISO 4217 code
@@ -57,16 +86,16 @@ namespace Vendr.PaymentProviders.Klarna
                 throw new Exception("Currency must be a valid ISO 4217 currency code: " + currency.Name);
             }
 
-            // Prepair order lines
-            // NB: We add order lines without any discounts applied as we'll then add
+            // Prepair ctx.Order lines
+            // NB: We add ctx.Order lines without any discounts applied as we'll then add
             // one global discount amount at the end. This is just the easiest way to
             // allow everything to add up and successfully validate at the Klarna end.
-            var orderLines = order.OrderLines.Select(orderLine => new KlarnaOrderLine
+            var orderLines = ctx.Order.OrderLines.Select(orderLine => new KlarnaOrderLine
             {
                 Reference = orderLine.Sku,
                 Name = orderLine.Name,
-                Type = !string.IsNullOrWhiteSpace(settings.ProductTypePropertyAlias) && orderLine.Properties.ContainsKey(settings.ProductTypePropertyAlias)
-                    ? orderLine.Properties[settings.ProductTypePropertyAlias]?.Value
+                Type = !string.IsNullOrWhiteSpace(ctx.Settings.ProductTypePropertyAlias) && orderLine.Properties.ContainsKey(ctx.Settings.ProductTypePropertyAlias)
+                    ? orderLine.Properties[ctx.Settings.ProductTypePropertyAlias]?.Value
                     : null,
                 TaxRate = (int)(orderLine.TaxRate.Value * 10000),
                 UnitPrice = (int)AmountToMinorUnits(orderLine.UnitPrice.WithoutAdjustments.WithTax),
@@ -75,144 +104,144 @@ namespace Vendr.PaymentProviders.Klarna
                 TotalTaxAmount = (int)AmountToMinorUnits(orderLine.TotalPrice.WithoutAdjustments.Tax)
             }).ToList();
 
-            // Add shipping method fee orderline
-            if (order.ShippingInfo.ShippingMethodId.HasValue && order.ShippingInfo.TotalPrice.Value.WithTax > 0) 
+            // Add shipping method fee ctx.Orderline
+            if (ctx.Order.ShippingInfo.ShippingMethodId.HasValue && ctx.Order.ShippingInfo.TotalPrice.Value.WithTax > 0) 
             {
-                var shippingMethod = Vendr.Services.ShippingMethodService.GetShippingMethod(order.ShippingInfo.ShippingMethodId.Value);
+                var shippingMethod = Vendr.Services.ShippingMethodService.GetShippingMethod(ctx.Order.ShippingInfo.ShippingMethodId.Value);
                 
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = shippingMethod.Sku,
                     Name = shippingMethod.Name + " Fee",
                     Type = KlarnaOrderLine.Types.SHIPPING_FEE,
-                    TaxRate = (int)(order.ShippingInfo.TaxRate * 10000),
-                    UnitPrice = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
+                    TaxRate = (int)(ctx.Order.ShippingInfo.TaxRate * 10000),
+                    UnitPrice = (int)AmountToMinorUnits(ctx.Order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
                     Quantity = 1,
-                    TotalAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.ShippingInfo.TotalPrice.WithoutAdjustments.Tax),
+                    TotalAmount = (int)AmountToMinorUnits(ctx.Order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(ctx.Order.ShippingInfo.TotalPrice.WithoutAdjustments.Tax),
                 });
             }
 
-            // Add payment method fee (as surcharge) orderline
-            if (order.PaymentInfo.TotalPrice.Value.WithTax > 0)
+            // Add payment method fee (as surcharge) ctx.Orderline
+            if (ctx.Order.PaymentInfo.TotalPrice.Value.WithTax > 0)
             {
-                var paymentMethod = Vendr.Services.PaymentMethodService.GetPaymentMethod(order.PaymentInfo.PaymentMethodId.Value);
+                var paymentMethod = Vendr.Services.PaymentMethodService.GetPaymentMethod(ctx.Order.PaymentInfo.PaymentMethodId.Value);
                 
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = paymentMethod.Sku,
                     Name = paymentMethod.Name + " Fee",
                     Type = KlarnaOrderLine.Types.SURCHARGE,
-                    TaxRate = (int)(order.PaymentInfo.TaxRate * 10000),
-                    UnitPrice = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
+                    TaxRate = (int)(ctx.Order.PaymentInfo.TaxRate * 10000),
+                    UnitPrice = (int)AmountToMinorUnits(ctx.Order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
                     Quantity = 1,
-                    TotalAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.PaymentInfo.TotalPrice.WithoutAdjustments.Tax),
+                    TotalAmount = (int)AmountToMinorUnits(ctx.Order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(ctx.Order.PaymentInfo.TotalPrice.WithoutAdjustments.Tax),
                 });
             }
 
             // Add any discounts
-            if (order.TotalPrice.TotalAdjustment < 0)
+            if (ctx.Order.TotalPrice.TotalAdjustment < 0)
             {
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = "DISCOUNT",
                     Name = "Discounts",
                     Type = KlarnaOrderLine.Types.DISCOUNT,
-                    TaxRate = (int)(order.TaxRate * 10000),
+                    TaxRate = (int)(ctx.Order.TaxRate * 10000),
                     UnitPrice = 0,
                     Quantity = 1,
-                    TotalDiscountAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.WithTax) * -1,
-                    TotalAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.WithTax),
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.Tax),
+                    TotalDiscountAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax) * -1,
+                    TotalAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax),
                 });
             } 
-            else if (order.TotalPrice.TotalAdjustment > 0)
+            else if (ctx.Order.TotalPrice.TotalAdjustment > 0)
             {
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = "FEE",
                     Name = "Additional Fees",
                     Type = KlarnaOrderLine.Types.SURCHARGE,
-                    TaxRate = (int)(order.TaxRate * 10000),
+                    TaxRate = (int)(ctx.Order.TaxRate * 10000),
                     UnitPrice = 0,
                     Quantity = 1,
-                    TotalAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.WithTax),
-                    TotalTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.TotalAdjustment.Tax),
+                    TotalAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax),
+                    TotalTaxAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax),
                 });
             }
 
             // Create a merchant session
-            var resp1 = client.CreateMerchantSession(new KlarnaCreateMerchantSessionOptions
+            var resp1 = await client.CreateMerchantSessionAsync(new KlarnaCreateMerchantSessionOptions
             {
-                MerchantReference1 = order.OrderNumber,
+                MerchantReference1 = ctx.Order.OrderNumber,
                 PurchaseCountry = billingCountryCode,
                 PurchaseCurrency = currencyCode,
-                Locale = order.LanguageIsoCode, // TODO: Validate?
+                Locale = ctx.Order.LanguageIsoCode, // TODO: Validate?
 
                 OrderLines = orderLines,
-                OrderAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.WithTax),
-                OrderTaxAmount = (int)AmountToMinorUnits(order.TotalPrice.Value.Tax),
+                OrderAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.Value.WithTax),
+                OrderTaxAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.Value.Tax),
 
                 BillingAddress = new KlarnaAddress
                 {
-                    GivenName = order.CustomerInfo.FirstName,
-                    FamilyName = order.CustomerInfo.LastName,
-                    Email = order.CustomerInfo.Email,
-                    StreetAddress = !string.IsNullOrWhiteSpace(settings.BillingAddressLine1PropertyAlias)
-                        ? order.Properties[settings.BillingAddressLine1PropertyAlias]?.Value : null,
-                    StreetAddress2 = !string.IsNullOrWhiteSpace(settings.BillingAddressLine2PropertyAlias)
-                        ? order.Properties[settings.BillingAddressLine2PropertyAlias]?.Value : null,
-                    City = !string.IsNullOrWhiteSpace(settings.BillingAddressCityPropertyAlias)
-                        ? order.Properties[settings.BillingAddressCityPropertyAlias]?.Value : null,
-                    Region = !string.IsNullOrWhiteSpace(settings.BillingAddressStatePropertyAlias)
-                        ? order.Properties[settings.BillingAddressStatePropertyAlias]?.Value : null,
-                    PostalCode = !string.IsNullOrWhiteSpace(settings.BillingAddressZipCodePropertyAlias)
-                        ? order.Properties[settings.BillingAddressZipCodePropertyAlias]?.Value : null,
+                    GivenName = ctx.Order.CustomerInfo.FirstName,
+                    FamilyName = ctx.Order.CustomerInfo.LastName,
+                    Email = ctx.Order.CustomerInfo.Email,
+                    StreetAddress = !string.IsNullOrWhiteSpace(ctx.Settings.BillingAddressLine1PropertyAlias)
+                        ? ctx.Order.Properties[ctx.Settings.BillingAddressLine1PropertyAlias]?.Value : null,
+                    StreetAddress2 = !string.IsNullOrWhiteSpace(ctx.Settings.BillingAddressLine2PropertyAlias)
+                        ? ctx.Order.Properties[ctx.Settings.BillingAddressLine2PropertyAlias]?.Value : null,
+                    City = !string.IsNullOrWhiteSpace(ctx.Settings.BillingAddressCityPropertyAlias)
+                        ? ctx.Order.Properties[ctx.Settings.BillingAddressCityPropertyAlias]?.Value : null,
+                    Region = !string.IsNullOrWhiteSpace(ctx.Settings.BillingAddressStatePropertyAlias)
+                        ? ctx.Order.Properties[ctx.Settings.BillingAddressStatePropertyAlias]?.Value : null,
+                    PostalCode = !string.IsNullOrWhiteSpace(ctx.Settings.BillingAddressZipCodePropertyAlias)
+                        ? ctx.Order.Properties[ctx.Settings.BillingAddressZipCodePropertyAlias]?.Value : null,
                     Country = billingCountryCode
                 }
             });;
 
             // Create a HPP session
-            var resp2 = client.CreateHppSession(new KlarnaCreateHppSessionOptions
+            var resp2 = await client.CreateHppSessionAsync(new KlarnaCreateHppSessionOptions
             {
                 PaymentSessionUrl = $"{clientConfig.BaseUrl}/payments/v1/sessions/{resp1.SessionId}",
                 Options = new KlarnaHppOptions
                 {
-                    PlaceOrderMode = settings.Capture 
+                    PlaceOrderMode = ctx.Settings.Capture 
                         ? KlarnaHppOptions.PlaceOrderModes.CAPTURE_ORDER
                         : KlarnaHppOptions.PlaceOrderModes.PLACE_ORDER,
-                    LogoUrl = !string.IsNullOrWhiteSpace(settings.PaymentPageLogoUrl)
-                        ? settings.PaymentPageLogoUrl.Trim()
+                    LogoUrl = !string.IsNullOrWhiteSpace(ctx.Settings.PaymentPageLogoUrl)
+                        ? ctx.Settings.PaymentPageLogoUrl.Trim()
                         : null,
-                    PageTitle = !string.IsNullOrWhiteSpace(settings.PaymentPagePageTitle)
-                        ? settings.PaymentPagePageTitle.Trim()
+                    PageTitle = !string.IsNullOrWhiteSpace(ctx.Settings.PaymentPagePageTitle)
+                        ? ctx.Settings.PaymentPagePageTitle.Trim()
                         : null,
-                    PaymentMethodCategories = !string.IsNullOrWhiteSpace(settings.PaymentMethodCategories)
-                        ? settings.PaymentMethodCategories.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    PaymentMethodCategories = !string.IsNullOrWhiteSpace(ctx.Settings.PaymentMethodCategories)
+                        ? ctx.Settings.PaymentMethodCategories.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                             .Select(x => x.Trim())
                             .Where(x => !string.IsNullOrWhiteSpace(x))
                             .ToArray()
                         : null,
-                    PaymentMethodCategory = !string.IsNullOrWhiteSpace(settings.PaymentMethodCategory)
-                        ? settings.PaymentMethodCategory.Trim()
+                    PaymentMethodCategory = !string.IsNullOrWhiteSpace(ctx.Settings.PaymentMethodCategory)
+                        ? ctx.Settings.PaymentMethodCategory.Trim()
                         : null,
-                    PaymentFallback = settings.EnableFallbacks
+                    PaymentFallback = ctx.Settings.EnableFallbacks
                 },
                 MerchantUrls = new KlarnaHppMerchantUrls
                 {
-                    Success = continueUrl,
-                    Cancel = AppendQueryString(cancelUrl, "reason=cancel"),
-                    Back = AppendQueryString(cancelUrl, "reason=back"),
-                    Failure = AppendQueryString(cancelUrl, "reason=failure"),
-                    Error = AppendQueryString(cancelUrl, "reason=error"),
-                    StatusUpdate = AppendQueryString(callbackUrl, "sid={{session_id}}&token="+ klarnaSecretToken),
+                    Success = ctx.Urls.ContinueUrl,
+                    Cancel = AppendQueryString(ctx.Urls.CancelUrl, "reason=cancel"),
+                    Back = AppendQueryString(ctx.Urls.CancelUrl, "reason=back"),
+                    Failure = AppendQueryString(ctx.Urls.CancelUrl, "reason=failure"),
+                    Error = AppendQueryString(ctx.Urls.CancelUrl, "reason=error"),
+                    StatusUpdate = AppendQueryString(ctx.Urls.CallbackUrl, "sid={{session_id}}&token="+ klarnaSecretToken),
                 }
             });
 
             return new PaymentFormResult()
             {
-                Form = new PaymentForm(resp2.RedirectUrl, FormMethod.Get),
+                Form = new PaymentForm(resp2.RedirectUrl, PaymentFormMethod.Get),
                 MetaData = new Dictionary<string, string>
                 {
                     { "klarnaSessionId", resp2.SessionId },
@@ -221,91 +250,60 @@ namespace Vendr.PaymentProviders.Klarna
             };
         }
 
-        public override string GetCancelUrl(OrderReadOnly order, KlarnaHppSettings settings)
+       
+
+        public override async Task<CallbackResult> ProcessCallbackAsync(PaymentProviderContext<KlarnaHppSettings> ctx)
         {
-            settings.MustNotBeNull("settings");
-            settings.CancelUrl.MustNotBeNull("settings.CancelUrl");
+            var qs = HttpUtility.ParseQueryString(ctx.Request.RequestUri.Query);
 
-            var cancelUrl = settings.CancelUrl;
+            var sessionId = qs["sid"];
+            var token = qs["token"];
 
-            if (HttpContext.Current != null)
+            if (!string.IsNullOrWhiteSpace(sessionId) && ctx.Order.Properties["klarnaSessionId"] == sessionId
+                && !string.IsNullOrWhiteSpace(token) && ctx.Order.Properties["klarnaSecretToken"] == token)
             {
-                var req = HttpContext.Current.Request;
-                var reason = req.QueryString["reason"];
-
-                cancelUrl = AppendQueryStringParam(cancelUrl, "reason", reason);
-
-                if (!string.IsNullOrWhiteSpace(settings.ErrorUrl) && (reason == "failure" || reason == "error"))
-                    return AppendQueryStringParam(settings.ErrorUrl, "reason", reason);
-                
-            }
-
-            return cancelUrl;
-        }
-
-        public override string GetErrorUrl(OrderReadOnly order, KlarnaHppSettings settings)
-        {
-            settings.MustNotBeNull("settings");
-            settings.ErrorUrl.MustNotBeNull("settings.ErrorUrl");
-
-            return settings.ErrorUrl;
-        }
-
-        public override string GetContinueUrl(OrderReadOnly order, KlarnaHppSettings settings)
-        {
-            settings.MustNotBeNull("settings");
-            settings.ContinueUrl.MustNotBeNull("settings.ContinueUrl");
-
-            return settings.ContinueUrl;
-        }
-
-        public override CallbackResult ProcessCallback(OrderReadOnly order, HttpRequestBase request, KlarnaHppSettings settings)
-        {
-            var sessionId = request.QueryString["sid"];
-            var token = request.QueryString["token"];
-
-            if (!string.IsNullOrWhiteSpace(sessionId) && order.Properties["klarnaSessionId"] == sessionId
-                && !string.IsNullOrWhiteSpace(token) && order.Properties["klarnaSecretToken"] == token)
-            {
-                var clientConfig = GetKlarnaClientConfig(settings);
+                var clientConfig = GetKlarnaClientConfig(ctx.Settings);
                 var client = new KlarnaClient(clientConfig);
 
-                var evt = client.ParseSessionEvent(request.InputStream);
-                if (evt != null && evt.Session.Status == KlarnaSession.Statuses.COMPLETED)
+                using (var stream = await ctx.Request.Content.ReadAsStreamAsync())
                 {
-                    var klarnaOrder = client.GetOrder(evt.Session.OrderId);
-
-                    return new CallbackResult
+                    var evt = client.ParseSessionEvent(stream);
+                    if (evt != null && evt.Session.Status == KlarnaSession.Statuses.COMPLETED)
                     {
-                        TransactionInfo = new TransactionInfo
+                        var klarnaOrder = await client.GetOrderAsync(evt.Session.OrderId);
+
+                        return new CallbackResult
                         {
-                            AmountAuthorized = AmountFromMinorUnits(klarnaOrder.OriginalOrderAmount),
-                            TransactionFee = 0m,
-                            TransactionId = klarnaOrder.OrderId,
-                            PaymentStatus = GetPaymentStatus(klarnaOrder)
-                        },
-                        MetaData = new Dictionary<string, string>
+                            TransactionInfo = new TransactionInfo
+                            {
+                                AmountAuthorized = AmountFromMinorUnits(klarnaOrder.OriginalOrderAmount),
+                                TransactionFee = 0m,
+                                TransactionId = klarnaOrder.OrderId,
+                                PaymentStatus = GetPaymentStatus(klarnaOrder)
+                            },
+                            MetaData = new Dictionary<string, string>
                         {
                             { "klarnaOrderId", evt.Session.OrderId },
                             { "klarnaReference", evt.Session.KlarnaReference }
                         }
-                    };
+                        };
+                    }
                 }
             }
 
             return CallbackResult.Ok();
         }
 
-        public override ApiResult FetchPaymentStatus(OrderReadOnly order, KlarnaHppSettings settings)
+        public override async Task<ApiResult> FetchPaymentStatusAsync(PaymentProviderContext<KlarnaHppSettings> ctx)
         {
             try
             {
-                var orderId = order.TransactionInfo.TransactionId;
+                var orderId = ctx.Order.TransactionInfo.TransactionId;
 
-                var clientConfig = GetKlarnaClientConfig(settings);
+                var clientConfig = GetKlarnaClientConfig(ctx.Settings);
                 var client = new KlarnaClient(clientConfig);
 
-                var klarnaOrder = client.GetOrder(orderId);
+                var klarnaOrder = await client.GetOrderAsync(orderId);
                 if (klarnaOrder != null)
                 {
                     return new ApiResult
@@ -321,25 +319,25 @@ namespace Vendr.PaymentProviders.Klarna
             }
             catch (Exception ex)
             {
-                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error fetching Klarna payment status for order {OrderNumber}", order.OrderNumber);
+                _logger.Error(ex, "Error fetching Klarna payment status for ctx.Order {OrderNumber}", ctx.Order.OrderNumber);
             }
 
             return ApiResult.Empty;
         }
 
-        public override ApiResult CapturePayment(OrderReadOnly order, KlarnaHppSettings settings)
+        public override async Task<ApiResult> CapturePaymentAsync(PaymentProviderContext<KlarnaHppSettings> ctx)
         {
             try
             {
-                var orderId = order.TransactionInfo.TransactionId;
+                var orderId = ctx.Order.TransactionInfo.TransactionId;
 
-                var clientConfig = GetKlarnaClientConfig(settings);
+                var clientConfig = GetKlarnaClientConfig(ctx.Settings);
                 var client = new KlarnaClient(clientConfig);
 
-                client.CaptureOrder(orderId, new KlarnaCaptureOptions
+                await client.CaptureOrderAsync(orderId, new KlarnaCaptureOptions
                 {
-                    Description = $"Capture Order {order.OrderNumber}",
-                    CapturedAmount = (int)AmountToMinorUnits(order.TransactionInfo.AmountAuthorized.Value)
+                    Description = $"Capture Order {ctx.Order.OrderNumber}",
+                    CapturedAmount = (int)AmountToMinorUnits(ctx.Order.TransactionInfo.AmountAuthorized.Value)
                 });
 
                 return new ApiResult
@@ -354,25 +352,25 @@ namespace Vendr.PaymentProviders.Klarna
             }
             catch (Exception ex)
             {
-                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error capturing Klarna payment for order {OrderNumber}", order.OrderNumber);
+                _logger.Error(ex, "Error capturing Klarna payment for ctx.Order {OrderNumber}", ctx.Order.OrderNumber);
             }
 
             return ApiResult.Empty;
         }
 
-        public override ApiResult RefundPayment(OrderReadOnly order, KlarnaHppSettings settings)
+        public override async Task<ApiResult> RefundPaymentAsync(PaymentProviderContext<KlarnaHppSettings> ctx)
         {
             try
             {
-                var orderId = order.TransactionInfo.TransactionId;
+                var orderId = ctx.Order.TransactionInfo.TransactionId;
 
-                var clientConfig = GetKlarnaClientConfig(settings);
+                var clientConfig = GetKlarnaClientConfig(ctx.Settings);
                 var client = new KlarnaClient(clientConfig);
 
-                client.RefundOrder(orderId, new KlarnaRefundOptions
+                await client.RefundOrderAsync(orderId, new KlarnaRefundOptions
                 {
-                    Description = $"Refund Order {order.OrderNumber}",
-                    RefundAmount = (int)AmountToMinorUnits(order.TransactionInfo.AmountAuthorized.Value)
+                    Description = $"Refund Order {ctx.Order.OrderNumber}",
+                    RefundAmount = (int)AmountToMinorUnits(ctx.Order.TransactionInfo.AmountAuthorized.Value)
                 });
 
                 return new ApiResult
@@ -387,22 +385,22 @@ namespace Vendr.PaymentProviders.Klarna
             }
             catch (Exception ex)
             {
-                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error refunding Klarna payment for order {OrderNumber}", order.OrderNumber);
+                _logger.Error(ex, "Error refunding Klarna payment for ctx.Order {OrderNumber}", ctx.Order.OrderNumber);
             }
 
             return ApiResult.Empty;
         }
 
-        public override ApiResult CancelPayment(OrderReadOnly order, KlarnaHppSettings settings)
+        public override async Task<ApiResult> CancelPaymentAsync(PaymentProviderContext<KlarnaHppSettings> ctx)
         {
             try
             {
-                var orderId = order.TransactionInfo.TransactionId;
+                var orderId = ctx.Order.TransactionInfo.TransactionId;
 
-                var clientConfig = GetKlarnaClientConfig(settings);
+                var clientConfig = GetKlarnaClientConfig(ctx.Settings);
                 var client = new KlarnaClient(clientConfig);
 
-                client.CancelOrder(orderId);
+                await client.CancelOrderAsync(orderId);
 
                 return new ApiResult
                 {
@@ -416,7 +414,7 @@ namespace Vendr.PaymentProviders.Klarna
             }
             catch (Exception ex)
             {
-                Vendr.Log.Error<KlarnaHppPaymentProvider>(ex, "Error canceling Klarna payment for order {OrderNumber}", order.OrderNumber);
+                _logger.Error(ex, "Error canceling Klarna payment for ctx.Order {OrderNumber}", ctx.Order.OrderNumber);
             }
 
             return ApiResult.Empty;
