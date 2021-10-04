@@ -74,6 +74,7 @@
               "Clean",
               "Compile",
               "Pack",
+              "Prepare",
               "Restore"
             ]
           }
@@ -91,6 +92,7 @@
               "Clean",
               "Compile",
               "Pack",
+              "Prepare",
               "Restore"
             ]
           }
