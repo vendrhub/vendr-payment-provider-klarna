@@ -105,7 +105,7 @@ namespace Vendr.PaymentProviders.Klarna
             }).ToList();
 
             // Add shipping method fee ctx.Orderline
-            if (ctx.Order.ShippingInfo.ShippingMethodId.HasValue && ctx.Order.ShippingInfo.TotalPrice.Value.WithTax > 0) 
+            if (ctx.Order.ShippingInfo.ShippingMethodId.HasValue && ctx.Order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax > 0) 
             {
                 var shippingMethod = Vendr.Services.ShippingMethodService.GetShippingMethod(ctx.Order.ShippingInfo.ShippingMethodId.Value);
                 
@@ -123,7 +123,7 @@ namespace Vendr.PaymentProviders.Klarna
             }
 
             // Add payment method fee (as surcharge) ctx.Orderline
-            if (ctx.Order.PaymentInfo.TotalPrice.Value.WithTax > 0)
+            if (ctx.Order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax > 0)
             {
                 var paymentMethod = Vendr.Services.PaymentMethodService.GetPaymentMethod(ctx.Order.PaymentInfo.PaymentMethodId.Value);
                 
