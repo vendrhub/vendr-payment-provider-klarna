@@ -112,7 +112,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = shippingMethod.Sku,
-                    Name = shippingMethod.Name + " Fee",
+                    Name = string.Format(ctx.Settings.FeeLabelTemplate ?? "{0} Fee", shippingMethod.Name),
                     Type = KlarnaOrderLine.Types.SHIPPING_FEE,
                     TaxRate = (int)(ctx.Order.ShippingInfo.TaxRate * 10000),
                     UnitPrice = (int)AmountToMinorUnits(ctx.Order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
@@ -130,7 +130,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = paymentMethod.Sku,
-                    Name = paymentMethod.Name + " Fee",
+                    Name = string.Format(ctx.Settings.FeeLabelTemplate ?? "{0} Fee", paymentMethod.Name),
                     Type = KlarnaOrderLine.Types.SURCHARGE,
                     TaxRate = (int)(ctx.Order.PaymentInfo.TaxRate * 10000),
                     UnitPrice = (int)AmountToMinorUnits(ctx.Order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
@@ -146,7 +146,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = "DISCOUNT",
-                    Name = "Discounts",
+                    Name = ctx.Settings.DiscountsLabel ?? "Discounts",
                     Type = KlarnaOrderLine.Types.DISCOUNT,
                     TaxRate = (int)(ctx.Order.TaxRate * 10000),
                     UnitPrice = 0,
@@ -160,8 +160,8 @@ namespace Vendr.PaymentProviders.Klarna
             {
                 orderLines.Add(new KlarnaOrderLine
                 {
-                    Reference = "FEE",
-                    Name = "Additional Fees",
+                    Reference = "SURCHARGE",
+                    Name = ctx.Settings.AdditionalFeesLabel ?? "Additional Fees",
                     Type = KlarnaOrderLine.Types.SURCHARGE,
                     TaxRate = (int)(ctx.Order.TaxRate * 10000),
                     UnitPrice = 0,
