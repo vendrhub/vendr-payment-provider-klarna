@@ -105,31 +105,31 @@ namespace Vendr.PaymentProviders.Klarna
 
         [PaymentProviderSetting(Name = "Payment Page Page Title",
             Description = "A custom title to display on the payment page.",
-            SortOrder = 100,
+            SortOrder = 200,
             IsAdvanced = true)]
         public string PaymentPagePageTitle { get; set; }
 
         [PaymentProviderSetting(Name = "Product Type Property Alias",
             Description = "The order line property alias containing the type of the product. Property value can be one of either 'physical' or 'digital'.",
-            SortOrder = 200,
+            SortOrder = 300,
             IsAdvanced = true)]
         public string ProductTypePropertyAlias { get; set; }
 
         [PaymentProviderSetting(Name = "Payment Method Categories",
             Description = "Comma separated list of payment method categories to show on the payment page. If empty, all allowable options will be presented. Options are DIRECT_DEBIT, DIRECT_BANK_TRANSFER, PAY_NOW, PAY_LATER and PAY_OVER_TIME",
-            SortOrder = 300,
+            SortOrder = 400,
             IsAdvanced = true)]
         public string PaymentMethodCategories { get; set; }
 
         [PaymentProviderSetting(Name = "Payment Method Category",
             Description = "The payment method category to show on the payment page. Options are DIRECT_DEBIT, DIRECT_BANK_TRANSFER, PAY_NOW, PAY_LATER and PAY_OVER_TIME",
-            SortOrder = 400,
+            SortOrder = 500,
             IsAdvanced = true)]
         public string PaymentMethodCategory { get; set; }
 
         [PaymentProviderSetting(Name = "Enable Fallbacks",
             Description = "Set whether to fallback to other payment options if the initial payment attempt fails before redirecting back to the site.",
-            SortOrder = 500,
+            SortOrder = 600,
             IsAdvanced = true)]
         public bool EnableFallbacks { get; set; }
     }
