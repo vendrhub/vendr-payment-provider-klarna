@@ -112,7 +112,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = shippingMethod.Sku,
-                    Name = string.Format(ctx.Settings.FeeLabelTemplate ?? "{0} Fee", shippingMethod.Name),
+                    Name = string.Format(!string.IsNullOrWhiteSpace(ctx.Settings.FeeLabelTemplate) ? ctx.Settings.FeeLabelTemplate : "{0} Fee", shippingMethod.Name),
                     Type = KlarnaOrderLine.Types.SHIPPING_FEE,
                     TaxRate = (int)(ctx.Order.ShippingInfo.TaxRate * 10000),
                     UnitPrice = (int)AmountToMinorUnits(ctx.Order.ShippingInfo.TotalPrice.WithoutAdjustments.WithTax),
@@ -130,7 +130,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = paymentMethod.Sku,
-                    Name = string.Format(ctx.Settings.FeeLabelTemplate ?? "{0} Fee", paymentMethod.Name),
+                    Name = string.Format(!string.IsNullOrWhiteSpace(ctx.Settings.FeeLabelTemplate) ? ctx.Settings.FeeLabelTemplate : "{0} Fee", paymentMethod.Name),
                     Type = KlarnaOrderLine.Types.SURCHARGE,
                     TaxRate = (int)(ctx.Order.PaymentInfo.TaxRate * 10000),
                     UnitPrice = (int)AmountToMinorUnits(ctx.Order.PaymentInfo.TotalPrice.WithoutAdjustments.WithTax),
@@ -146,7 +146,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = "DISCOUNT",
-                    Name = ctx.Settings.DiscountsLabel ?? "Discounts",
+                    Name = !string.IsNullOrWhiteSpace(ctx.Settings.DiscountsLabel) ? ctx.Settings.DiscountsLabel : "Discounts",
                     Type = KlarnaOrderLine.Types.DISCOUNT,
                     TaxRate = (int)(ctx.Order.TaxRate * 10000),
                     UnitPrice = 0,
@@ -161,7 +161,7 @@ namespace Vendr.PaymentProviders.Klarna
                 orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = "SURCHARGE",
-                    Name = ctx.Settings.AdditionalFeesLabel ?? "Additional Fees",
+                    Name = !string.IsNullOrWhiteSpace(ctx.Settings.AdditionalFeesLabel) ? ctx.Settings.AdditionalFeesLabel : "Additional Fees",
                     Type = KlarnaOrderLine.Types.SURCHARGE,
                     TaxRate = (int)(ctx.Order.TaxRate * 10000),
                     UnitPrice = 0,
