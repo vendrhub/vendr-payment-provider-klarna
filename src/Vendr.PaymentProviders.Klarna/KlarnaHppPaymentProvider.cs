@@ -148,7 +148,7 @@ namespace Vendr.PaymentProviders.Klarna
                     Reference = "DISCOUNT",
                     Name = !string.IsNullOrWhiteSpace(ctx.Settings.DiscountsLabel) ? ctx.Settings.DiscountsLabel : "Discounts",
                     Type = KlarnaOrderLine.Types.DISCOUNT,
-                    TaxRate = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax / ctx.Order.TotalPrice.TotalAdjustment.WithoutTax * 100),
+                    TaxRate = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax / ctx.Order.TotalPrice.TotalAdjustment.WithoutTax * -100),
                     UnitPrice = 0,
                     Quantity = 1,
                     TotalDiscountAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax) * -1,
