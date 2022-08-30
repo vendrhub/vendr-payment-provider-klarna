@@ -143,18 +143,22 @@ namespace Vendr.PaymentProviders.Klarna
             // Add any discounts
             if (ctx.Order.TotalPrice.TotalAdjustment < 0)
             {
-                orderLines.Add(new KlarnaOrderLine
+                var ol = new KlarnaOrderLine
                 {
                     Reference = "DISCOUNT",
                     Name = !string.IsNullOrWhiteSpace(ctx.Settings.DiscountsLabel) ? ctx.Settings.DiscountsLabel : "Discounts",
                     Type = KlarnaOrderLine.Types.DISCOUNT,
-                    TaxRate = (int)(ctx.Order.TaxRate * 10000),
+                    TaxRate = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax / ctx.Order.TotalPrice.TotalAdjustment.WithoutTax * 100),
                     UnitPrice = 0,
                     Quantity = 1,
                     TotalDiscountAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax) * -1,
                     TotalAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax),
                     TotalTaxAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax),
-                });
+                };
+
+                ol.TaxRate = (ol.TotalTaxAmount / (ol.TotalAmount - ol.TotalTaxAmount)) * 10000;
+
+                orderLines.Add(ol);
             } 
             else if (ctx.Order.TotalPrice.TotalAdjustment > 0)
             {
@@ -163,7 +167,7 @@ namespace Vendr.PaymentProviders.Klarna
                     Reference = "SURCHARGE",
                     Name = !string.IsNullOrWhiteSpace(ctx.Settings.AdditionalFeesLabel) ? ctx.Settings.AdditionalFeesLabel : "Additional Fees",
                     Type = KlarnaOrderLine.Types.SURCHARGE,
-                    TaxRate = (int)(ctx.Order.TaxRate * 10000),
+                    TaxRate = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax / ctx.Order.TotalPrice.TotalAdjustment.WithoutTax * 100),
                     UnitPrice = 0,
                     Quantity = 1,
                     TotalAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax),
