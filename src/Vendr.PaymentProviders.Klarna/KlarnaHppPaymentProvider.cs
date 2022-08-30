@@ -143,22 +143,18 @@ namespace Vendr.PaymentProviders.Klarna
             // Add any discounts
             if (ctx.Order.TotalPrice.TotalAdjustment < 0)
             {
-                var ol = new KlarnaOrderLine
+                orderLines.Add(new KlarnaOrderLine
                 {
                     Reference = "DISCOUNT",
                     Name = !string.IsNullOrWhiteSpace(ctx.Settings.DiscountsLabel) ? ctx.Settings.DiscountsLabel : "Discounts",
                     Type = KlarnaOrderLine.Types.DISCOUNT,
-                    TaxRate = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax / ctx.Order.TotalPrice.TotalAdjustment.WithoutTax * -100),
+                    TaxRate = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax / ctx.Order.TotalPrice.TotalAdjustment.WithoutTax * 100),
                     UnitPrice = 0,
                     Quantity = 1,
                     TotalDiscountAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax) * -1,
                     TotalAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.WithTax),
                     TotalTaxAmount = (int)AmountToMinorUnits(ctx.Order.TotalPrice.TotalAdjustment.Tax),
-                };
-
-                ol.TaxRate = (ol.TotalTaxAmount / (ol.TotalAmount - ol.TotalTaxAmount)) * 10000;
-
-                orderLines.Add(ol);
+                });
             } 
             else if (ctx.Order.TotalPrice.TotalAdjustment > 0)
             {
