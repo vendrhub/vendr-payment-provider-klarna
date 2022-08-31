@@ -16,7 +16,7 @@ trigger:
 variables:
   - group: 'vendr'
   - name: 'vmImageName'
-    value: 'windows-latest'
+    value: 'windows-2019'
   - name: 'nuGetOrgServiceCreds'
     value: 'NuGet.org (Vendr)'
   - name: 'packageName'
